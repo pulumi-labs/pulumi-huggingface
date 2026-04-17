@@ -1,0 +1,16 @@
+name: ${PROJECT}
+description: ${DESCRIPTION}
+runtime: nodejs
+
+template:
+  description: A TypeScript program to provision a Hugging Face model repository and a free-tier Gradio Space.
+  config:
+    hfToken:
+      description: Hugging Face API token with write access (starts with hf_...). Generate at huggingface.co → Settings → Access Tokens.
+      secret: true
+    namespace:
+      description: Hugging Face username or organization that owns these resources. Leave blank to use the token owner's account.
+      default: ""
+    private:
+      description: Whether the repository and Space are private (true or false).
+      default: false
