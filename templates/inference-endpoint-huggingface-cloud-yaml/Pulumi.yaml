@@ -1,0 +1,116 @@
+name: ${PROJECT}
+description: ${DESCRIPTION}
+runtime: yaml
+
+template:
+  description: "A YAML program to deploy a Hugging Face Inference Endpoint with a Gradio Space that calls it: model serving plus a demo UI."
+  config:
+    hfToken:
+      description: "Hugging Face API token with write access (starts with hf_...). Generate at https://huggingface.co/settings/tokens."
+      secret: true
+    namespace:
+      description: Hugging Face username or organization that owns these resources. Leave blank to use the token owner's account.
+      default: ""
+    modelRepository:
+      description: Hugging Face model repository ID to serve (e.g. mistralai/Mistral-7B-Instruct-v0.3).
+      default: mistralai/Mistral-7B-Instruct-v0.3
+    modelTask:
+      description: Inference task type for the endpoint (e.g. text-generation).
+      default: text-generation
+    vendor:
+      description: Cloud vendor for the inference endpoint (aws, azure, or gcp).
+      default: aws
+    region:
+      description: Cloud region for the inference endpoint (e.g. us-east-1 for AWS).
+      default: us-east-1
+    instanceType:
+      description: GPU instance family (e.g. nvidia-a10g).
+      default: nvidia-a10g
+    instanceSize:
+      description: Instance size multiplier (x1, x2, x4, x8).
+      default: x1
+    endpointType:
+      description: Access control for the endpoint (public, protected, or private).
+      default: protected
+
+config:
+  hfToken:
+    type: string
+    secret: true
+  namespace:
+    type: string
+    default: ""
+  modelRepository:
+    type: string
+    default: mistralai/Mistral-7B-Instruct-v0.3
+  modelTask:
+    type: string
+    default: text-generation
+  vendor:
+    type: string
+    default: aws
+  region:
+    type: string
+    default: us-east-1
+  instanceType:
+    type: string
+    default: nvidia-a10g
+  instanceSize:
+    type: string
+    default: x1
+  endpointType:
+    type: string
+    default: protected
+
+resources:
+  # Explicit provider so credentials come from project-namespace config,
+  # not environment variables.
+  huggingface:
+    type: pulumi:providers:huggingface
+    properties:
+      token: ${hfToken}
+
+  # Deploy a dedicated GPU inference endpoint.
+  # minReplica: 0 enables scale-to-zero so idle time costs nothing.
+  hf-endpoint:
+    type: huggingface:index:InferenceEndpoint
+    properties:
+      namespace: ${namespace}
+      modelRepository: ${modelRepository}
+      modelFramework: pytorch
+      modelTask: ${modelTask}
+      vendor: ${vendor}
+      region: ${region}
+      accelerator: gpu
+      instanceType: ${instanceType}
+      instanceSize: ${instanceSize}
+      minReplica: 0
+      maxReplica: 2
+      scaleToZeroTimeout: 15
+      endpointType: ${endpointType}
+    options:
+      provider: ${huggingface}
+
+  # Gradio Space wired to the endpoint via environment variable injection.
+  # cpu-basic hardware keeps the UI free while compute cost sits on the endpoint.
+  hf-space:
+    type: huggingface:index:Space
+    properties:
+      namespace: ${namespace}
+      sdk: gradio
+      hardware: cpu-basic
+      variables:
+        - key: ENDPOINT_URL
+          value: ${hf-endpoint.url}
+        - key: MODEL_NAME
+          value: ${modelRepository}
+      secrets:
+        - key: HF_TOKEN
+          value: ${hfToken}
+    options:
+      provider: ${huggingface}
+
+outputs:
+  endpointUrl:    ${hf-endpoint.url}
+  endpointStatus: ${hf-endpoint.status}
+  spaceUrl:       ${hf-space.url}
