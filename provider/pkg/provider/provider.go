@@ -26,11 +26,17 @@ func (c *ProviderConfig) Annotate(a infer.Annotator) {
 // New returns the configured Hugging Face Pulumi provider.
 func New() (pgp.Provider, error) {
 	return infer.NewProviderBuilder().
-		WithDisplayName("huggingface").
+		WithDisplayName("Hugging Face").
 		WithDescription(
 			"Manage Hugging Face resources — Inference Endpoints, Spaces, and Hub repositories — "+
 				"as infrastructure with Pulumi.",
 		).
+		WithHomepage("https://huggingface.co").
+		WithRepository("https://github.com/pulumi/autoregistry").
+		WithGoImportPath("github.com/pulumi/pulumi-huggingface/sdk/go/huggingface").
+		WithPublisher("Pulumi").
+		WithLicense("Apache-2.0").
+		WithKeywords("pulumi", "huggingface", "ai", "machine-learning", "category/cloud").
 		WithModuleMap(map[tokens.ModuleName]tokens.ModuleName{
 			"provider": "index",
 		}).
