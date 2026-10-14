@@ -1,9 +1,16 @@
 package provider_test
 
 import (
+	"encoding/json"
+	"slices"
 	"testing"
 
+	"github.com/blang/semver"
 	"github.com/pulumi/autoregistry/lib/providers/huggingface/provider/pkg/provider"
+	pgp "github.com/pulumi/pulumi-go-provider"
+	"github.com/pulumi/pulumi-go-provider/integration"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
+	"github.com/pulumi/pulumi/sdk/v3/go/property"
 )
 
 // TestProvider_DoesNotPanic verifies that provider construction succeeds without panicking.
@@ -173,6 +180,141 @@ func TestSplitID_Invalid(t *testing.T) {
 		_, _, err := provider.SplitID(id)
 		if err == nil {
 			t.Errorf("SplitID(%q) should have returned error", id)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// CheckConfig: environment variable fallbacks
+// ---------------------------------------------------------------------------
+
+// envConfigKeys maps each provider config key to the environment variables
+// that back it (first non-empty wins) and whether the key is a secret.
+var envConfigKeys = []struct {
+	key    string
+	envs   []string
+	secret bool
+}{
+	{key: "token", envs: []string{"HUGGINGFACE_TOKEN"}, secret: true},
+}
+
+// newEnvTestServer builds an integration server for the provider with every
+// provider env var cleared so each case is hermetic.
+func newEnvTestServer(t *testing.T) integration.Server {
+	t.Helper()
+	for _, k := range envConfigKeys {
+		for _, e := range k.envs {
+			t.Setenv(e, "")
+		}
+	}
+	p, err := provider.New()
+	if err != nil {
+		t.Fatalf("provider.New() returned error: %v", err)
+	}
+	s, err := integration.NewServer(t.Context(), "huggingface", semver.MustParse("0.0.1"), integration.WithProvider(p))
+	if err != nil {
+		t.Fatalf("integration.NewServer failed: %v", err)
+	}
+	return s
+}
+
+// TestCheckConfig_EnvFallbacks verifies that unset provider config is filled
+// from the environment, that explicit config still wins, and that the first
+// non-empty variable wins when a key has several.
+func TestCheckConfig_EnvFallbacks(t *testing.T) {
+	type tc struct {
+		name   string
+		key    string
+		secret bool
+		env    map[string]string
+		config map[string]property.Value
+		want   string
+	}
+	var tests []tc
+	for _, k := range envConfigKeys {
+		for _, e := range k.envs {
+			tests = append(tests, tc{name: k.key + " from " + e, key: k.key, secret: k.secret, env: map[string]string{e: "from-" + e}, want: "from-" + e})
+		}
+		if len(k.envs) > 1 {
+			env := map[string]string{}
+			for _, e := range k.envs {
+				env[e] = "from-" + e
+			}
+			tests = append(tests, tc{name: k.key + " first env wins", key: k.key, secret: k.secret, env: env, want: "from-" + k.envs[0]})
+		}
+		tests = append(tests, tc{
+			name:   k.key + " explicit config wins over env",
+			key:    k.key,
+			secret: k.secret,
+			env:    map[string]string{k.envs[0]: "from-env"},
+			config: map[string]property.Value{k.key: property.New("from-config")},
+			want:   "from-config",
+		})
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := newEnvTestServer(t)
+			for e, v := range tt.env {
+				t.Setenv(e, v)
+			}
+			resp, err := s.CheckConfig(pgp.CheckRequest{
+				Urn:    resource.NewURN("stack", "proj", "", "pulumi:providers:huggingface", "default"),
+				Inputs: property.NewMap(tt.config),
+			})
+			if err != nil {
+				t.Fatalf("CheckConfig failed: %v", err)
+			}
+			if len(resp.Failures) != 0 {
+				t.Fatalf("CheckConfig returned failures: %v", resp.Failures)
+			}
+
+			got, ok := resp.Inputs.GetOk(tt.key)
+			if !ok {
+				t.Fatalf("%s should be populated", tt.key)
+			}
+			// infer marks env-sourced and config-sourced secret fields as secret.
+			if tt.secret && !got.Secret() {
+				t.Fatalf("%s should be marked secret", tt.key)
+			}
+			if got.Secret() {
+				got = got.WithSecret(false)
+			}
+			if gotStr := got.AsString(); gotStr != tt.want {
+				t.Fatalf("%s = %q, want %q", tt.key, gotStr, tt.want)
+			}
+		})
+	}
+}
+
+// TestSchema_ConfigEnvironmentDefaults verifies the generated schema
+// advertises each config key's environment variables as defaultInfo, which is
+// what SDKs and the Registry docs consume.
+func TestSchema_ConfigEnvironmentDefaults(t *testing.T) {
+	s := newEnvTestServer(t)
+	resp, err := s.GetSchema(pgp.GetSchemaRequest{})
+	if err != nil {
+		t.Fatalf("GetSchema failed: %v", err)
+	}
+
+	var spec struct {
+		Config struct {
+			Variables map[string]struct {
+				DefaultInfo struct {
+					Environment []string `json:"environment"`
+				} `json:"defaultInfo"`
+			} `json:"variables"`
+		} `json:"config"`
+	}
+	if err := json.Unmarshal([]byte(resp.Schema), &spec); err != nil {
+		t.Fatalf("schema is not valid JSON: %v", err)
+	}
+	for _, k := range envConfigKeys {
+		v, ok := spec.Config.Variables[k.key]
+		if !ok {
+			t.Fatalf("config.variables.%s should be declared", k.key)
+		}
+		if !slices.Equal(k.envs, v.DefaultInfo.Environment) {
+			t.Fatalf("config.variables.%s.defaultInfo.environment = %v, want %v", k.key, v.DefaultInfo.Environment, k.envs)
 		}
 	}
 }

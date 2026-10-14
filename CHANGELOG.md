@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `huggingface` provider: the `huggingface:token` config key now falls back to the `HUGGINGFACE_TOKEN` environment variable when unset (the previous struct tag was ignored by the framework). Explicit config still wins.
+
 ### Added
 
 - `templates/inference-endpoint-huggingface-cloud-<lang>` starters (all 6 languages) — scenario template that provisions a dedicated `InferenceEndpoint` plus a Gradio `Space` wired to call it, the production model-serving pattern for HF.

@@ -16,10 +16,14 @@ import (
 type ProviderConfig struct {
 	// Token is the Hugging Face API token. Can be overridden per resource.
 	// If not set here, the HUGGINGFACE_TOKEN environment variable is consulted.
-	Token *string `pulumi:"token,optional" provider:"secret" env:"HUGGINGFACE_TOKEN"`
+	Token *string `pulumi:"token,optional" provider:"secret"`
 }
 
+// Annotate describes the provider config fields and wires their environment
+// variable fallbacks; infer reads env defaults only from SetDefault, not from
+// struct tags.
 func (c *ProviderConfig) Annotate(a infer.Annotator) {
+	a.SetDefault(&c.Token, nil, "HUGGINGFACE_TOKEN")
 	a.Describe(&c.Token, "Hugging Face API token. Overridable per resource. Falls back to the HUGGINGFACE_TOKEN environment variable.")
 }
 
