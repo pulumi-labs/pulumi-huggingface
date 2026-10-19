@@ -2,17 +2,11 @@ name: huggingface-yaml
 runtime: yaml
 description: Deploy a Hugging Face Inference Endpoint with Pulumi (YAML)
 
-config:
-  hfToken:
-    type: string
-    secret: true
-
 resources:
   # Deploy a zero-shot classification model
   classifier-endpoint:
     type: huggingface:index:InferenceEndpoint
     properties:
-      token: ${hfToken}
       modelRepository: cross-encoder/nli-deberta-v3-small
       modelFramework: pytorch
       modelTask: zero-shot-classification
@@ -29,7 +23,6 @@ resources:
   my-model-repo:
     type: huggingface:index:Repository
     properties:
-      token: ${hfToken}
       repoType: model
       private: true
 

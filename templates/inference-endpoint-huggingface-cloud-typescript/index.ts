@@ -12,10 +12,6 @@ const instanceType    = config.get("instanceType")    || "nvidia-a10g";
 const instanceSize    = config.get("instanceSize")    || "x1";
 const endpointType    = config.get("endpointType")    || "protected";
 
-// Explicit provider so credentials come from project-namespace config,
-// not environment variables.
-const provider = new huggingface.Provider("huggingface", { token: hfToken });
-
 // Deploy a dedicated GPU inference endpoint.
 // minReplica: 0 enables scale-to-zero so idle time costs nothing.
 const endpoint = new huggingface.InferenceEndpoint("hf-endpoint", {
@@ -32,7 +28,7 @@ const endpoint = new huggingface.InferenceEndpoint("hf-endpoint", {
     maxReplica:         2,
     scaleToZeroTimeout: 15,
     endpointType,
-}, { provider });
+});
 
 // Gradio Space wired to the endpoint via environment variable injection.
 // cpu-basic hardware keeps the UI free while compute cost sits on the endpoint.
@@ -47,7 +43,7 @@ const space = new huggingface.Space("hf-space", {
     secrets: [
         { key: "HF_TOKEN", value: hfToken },
     ],
-}, { provider });
+});
 
 export const endpointUrl    = endpoint.url;
 export const endpointStatus = endpoint.status;

@@ -6,7 +6,7 @@ template:
   description: "A YAML program to deploy a Hugging Face Inference Endpoint with a Gradio Space that calls it: model serving plus a demo UI."
   config:
     hfToken:
-      description: "Hugging Face API token with write access (starts with hf_...). Generate at https://huggingface.co/settings/tokens."
+      description: "Hugging Face API token stored as the HF_TOKEN secret in the Space (starts with hf_...). The provider itself reads huggingface:token or HUGGINGFACE_TOKEN."
       secret: true
     namespace:
       description: Hugging Face username or organization that owns these resources. Leave blank to use the token owner's account.
@@ -63,13 +63,6 @@ config:
     default: protected
 
 resources:
-  # Explicit provider so credentials come from project-namespace config,
-  # not environment variables.
-  huggingface:
-    type: pulumi:providers:huggingface
-    properties:
-      token: ${hfToken}
-
   # Deploy a dedicated GPU inference endpoint.
   # minReplica: 0 enables scale-to-zero so idle time costs nothing.
   hf-endpoint:
@@ -88,8 +81,6 @@ resources:
       maxReplica: 2
       scaleToZeroTimeout: 15
       endpointType: ${endpointType}
-    options:
-      provider: ${huggingface}
 
   # Gradio Space wired to the endpoint via environment variable injection.
   # cpu-basic hardware keeps the UI free while compute cost sits on the endpoint.
@@ -107,8 +98,6 @@ resources:
       secrets:
         - key: HF_TOKEN
           value: ${hfToken}
-    options:
-      provider: ${huggingface}
 
 outputs:
   endpointUrl:    ${hf-endpoint.url}

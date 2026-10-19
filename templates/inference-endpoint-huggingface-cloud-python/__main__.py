@@ -12,10 +12,6 @@ instance_type    = config.get("instanceType")    or "nvidia-a10g"
 instance_size    = config.get("instanceSize")    or "x1"
 endpoint_type    = config.get("endpointType")    or "protected"
 
-# Explicit provider so credentials come from project-namespace config,
-# not environment variables.
-provider = huggingface.Provider("huggingface", token=hf_token)
-
 # Deploy a dedicated GPU inference endpoint.
 # min_replica=0 enables scale-to-zero so idle time costs nothing.
 endpoint = huggingface.InferenceEndpoint(
@@ -33,7 +29,6 @@ endpoint = huggingface.InferenceEndpoint(
     max_replica=2,
     scale_to_zero_timeout=15,
     endpoint_type=endpoint_type,
-    opts=pulumi.ResourceOptions(provider=provider),
 )
 
 # Gradio Space wired to the endpoint via environment variable injection.
@@ -50,7 +45,6 @@ space = huggingface.Space(
     secrets=[
         huggingface.SpaceSecretInputArgs(key="HF_TOKEN", value=hf_token),
     ],
-    opts=pulumi.ResourceOptions(provider=provider),
 )
 
 pulumi.export("endpointUrl",    endpoint.url)

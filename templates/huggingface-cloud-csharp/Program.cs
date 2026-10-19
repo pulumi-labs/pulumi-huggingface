@@ -4,17 +4,9 @@ using System.Collections.Generic;
 
 return await Deployment.RunAsync(() =>
 {
-    var config    = new Config();
-    var hfToken   = config.RequireSecret("hfToken");
+    var config    = new Pulumi.Config();
     var ns        = config.Get("namespace");
     var isPrivate = config.GetBoolean("private") ?? false;
-
-    // Explicit provider so credentials come from project-namespace config,
-    // not environment variables.
-    var provider = new Provider("huggingface", new ProviderArgs
-    {
-        Token = hfToken,
-    });
 
     // Build optional namespace argument — only set when non-empty so the API
     // falls back to the token owner's account by default.
@@ -27,7 +19,7 @@ return await Deployment.RunAsync(() =>
         Namespace = nsArg,
         RepoType  = "model",
         Private   = isPrivate,
-    }, new CustomResourceOptions { Provider = provider });
+    });
 
     // Create a Gradio Space on free cpu-basic hardware to showcase the model.
     // cpu-basic Spaces are free on the Hub and ideal for lightweight demos.
@@ -37,7 +29,7 @@ return await Deployment.RunAsync(() =>
         Sdk       = "gradio",
         Hardware  = "cpu-basic",
         Private   = isPrivate,
-    }, new CustomResourceOptions { Provider = provider });
+    });
 
     return new Dictionary<string, object?>
     {

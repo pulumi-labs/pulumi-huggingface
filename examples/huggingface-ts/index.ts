@@ -2,11 +2,11 @@ import * as pulumi from "@pulumi/pulumi";
 import * as huggingface from "@pulumi/huggingface";
 
 const config = new pulumi.Config();
+// Only used as the Space HF_TOKEN secret below; the provider reads huggingface:token or HUGGINGFACE_TOKEN.
 const hfToken = config.requireSecret("hfToken");
 
 // Deploy Llama 3 8B to a dedicated GPU inference endpoint
 const endpoint = new huggingface.InferenceEndpoint("llama-3-8b", {
-    token: hfToken,
     modelRepository: "meta-llama/Meta-Llama-3-8B-Instruct",
     modelFramework: "pytorch",
     modelTask: "text-generation",
@@ -24,7 +24,6 @@ const endpoint = new huggingface.InferenceEndpoint("llama-3-8b", {
 
 // Create a Gradio demo Space that calls the endpoint
 const demo = new huggingface.Space("llama-demo", {
-    token: hfToken,
     sdk: "gradio",
     hardware: "cpu-basic",
     variables: [

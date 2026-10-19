@@ -47,15 +47,6 @@ func main() {
 			namespace = pulumi.StringPtr(ns)
 		}
 
-		// Explicit provider so credentials come from project-namespace config,
-		// not environment variables.
-		provider, err := huggingface.NewProvider(ctx, "huggingface", &huggingface.ProviderArgs{
-			Token: hfToken,
-		})
-		if err != nil {
-			return err
-		}
-
 		minReplica := 0
 		maxReplica := 2
 		scaleToZeroTimeout := 15
@@ -76,7 +67,7 @@ func main() {
 			MaxReplica:         pulumi.IntPtr(maxReplica),
 			ScaleToZeroTimeout: pulumi.IntPtr(scaleToZeroTimeout),
 			EndpointType:       pulumi.StringPtr(endpointType),
-		}, pulumi.Provider(provider))
+		})
 		if err != nil {
 			return err
 		}
@@ -103,7 +94,7 @@ func main() {
 					Value: hfToken,
 				},
 			},
-		}, pulumi.Provider(provider))
+		})
 		if err != nil {
 			return err
 		}

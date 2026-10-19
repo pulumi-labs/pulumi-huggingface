@@ -3,17 +3,12 @@ package main
 import (
 	"github.com/pulumi/pulumi-huggingface/sdk/go/huggingface"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 )
 
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
-		cfg := config.New(ctx, "")
-		hfToken := cfg.RequireSecret("hfToken")
-
 		// Deploy Mistral 7B with TGI container for high-throughput text generation
 		endpoint, err := huggingface.NewInferenceEndpoint(ctx, "mistral-7b", &huggingface.InferenceEndpointArgs{
-			Token:           hfToken,
 			ModelRepository: pulumi.String("mistralai/Mistral-7B-Instruct-v0.3"),
 			ModelFramework:  pulumi.String("pytorch"),
 			ModelTask:       pulumi.String("text-generation"),

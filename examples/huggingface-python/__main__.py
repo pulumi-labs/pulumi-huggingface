@@ -1,13 +1,9 @@
 import pulumi
 import pulumi_huggingface as huggingface
 
-config = pulumi.Config()
-hf_token = config.require_secret("hfToken")
-
 # Deploy a text-embedding model for RAG pipelines
 endpoint = huggingface.InferenceEndpoint(
     "bge-large",
-    token=hf_token,
     model_repository="BAAI/bge-large-en-v1.5",
     model_framework="pytorch",
     model_task="feature-extraction",
@@ -24,7 +20,6 @@ endpoint = huggingface.InferenceEndpoint(
 # Create a dataset repository for storing embeddings metadata
 dataset_repo = huggingface.Repository(
     "embeddings-metadata",
-    token=hf_token,
     repo_type="dataset",
     private=True,
 )

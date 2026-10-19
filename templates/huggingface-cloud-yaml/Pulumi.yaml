@@ -5,9 +5,6 @@ runtime: yaml
 template:
   description: A YAML program to provision a Hugging Face model repository and a free-tier Gradio Space.
   config:
-    hfToken:
-      description: Hugging Face API token with write access (starts with hf_...). Generate at huggingface.co → Settings → Access Tokens.
-      secret: true
     namespace:
       description: Hugging Face username or organization that owns these resources. Leave blank to use the token owner's account.
       default: ""
@@ -16,9 +13,6 @@ template:
       default: false
 
 config:
-  hfToken:
-    type: string
-    secret: true
   namespace:
     type: string
     default: ""
@@ -27,13 +21,6 @@ config:
     default: false
 
 resources:
-  # Explicit provider so credentials come from project-namespace config,
-  # not environment variables.
-  huggingface:
-    type: pulumi:providers:huggingface
-    properties:
-      token: ${hfToken}
-
   # Create a model repository on the Hugging Face Hub.
   # The repository stores model weights, config, and any other artifacts.
   hf-repo:
@@ -42,8 +29,6 @@ resources:
       namespace: ${namespace}
       repoType: model
       private: ${private}
-    options:
-      provider: ${huggingface}
 
   # Create a Gradio Space on free cpu-basic hardware to showcase the model.
   # cpu-basic Spaces are free on the Hub and ideal for lightweight demos.
@@ -54,8 +39,6 @@ resources:
       sdk: gradio
       hardware: cpu-basic
       private: ${private}
-    options:
-      provider: ${huggingface}
 
 outputs:
   repoId:   ${hf-repo.repoId}

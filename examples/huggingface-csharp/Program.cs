@@ -4,13 +4,9 @@ using System.Collections.Generic;
 
 return await Deployment.RunAsync(() =>
 {
-    var config = new Config();
-    var hfToken = config.RequireSecret("hfToken");
-
     // Deploy a sentence-similarity model endpoint for semantic search
     var endpoint = new InferenceEndpoint("e5-large", new InferenceEndpointArgs
     {
-        Token = hfToken,
         ModelRepository = "intfloat/e5-large-v2",
         ModelFramework = "pytorch",
         ModelTask = "feature-extraction",

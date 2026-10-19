@@ -8,13 +8,9 @@ import com.pulumi.huggingface.InferenceEndpointArgs;
 public class App {
     public static void main(String[] args) {
         Pulumi.run(ctx -> {
-            var config = ctx.config();
-            var hfToken = config.requireSecret("hfToken");
-
             // Deploy a summarization model endpoint
             var endpoint = new InferenceEndpoint("bart-summarizer",
                 InferenceEndpointArgs.builder()
-                    .token(hfToken)
                     .modelRepository("facebook/bart-large-cnn")
                     .modelFramework("pytorch")
                     .modelTask("summarization")

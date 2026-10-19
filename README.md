@@ -39,6 +39,8 @@ export HUGGINGFACE_TOKEN=hf_...
 pulumi config set --secret huggingface:token hf_...
 ```
 
+Examples and templates use the default provider and never pass the token per resource, so the same `huggingface:token` / `HUGGINGFACE_TOKEN` setting works everywhere. The inference-endpoint templates additionally read an `hfToken` secret only to store it as the Space `HF_TOKEN` secret.
+
 Tokens must have **write** access to create endpoints, Spaces, and repositories. Generate one at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens).
 
 ## Resources
@@ -92,10 +94,7 @@ Deploy a dedicated compute instance that serves a Hugging Face model for product
 import * as pulumi from "@pulumi/pulumi";
 import * as huggingface from "@pulumi/huggingface";
 
-const config = new pulumi.Config();
-
 const endpoint = new huggingface.InferenceEndpoint("llama-3-8b", {
-    token: config.requireSecret("hfToken"),
     modelRepository: "meta-llama/Meta-Llama-3-8B-Instruct",
     modelFramework: "pytorch",
     modelTask: "text-generation",
@@ -119,11 +118,8 @@ export const endpointUrl = endpoint.url;
 import pulumi
 import pulumi_huggingface as huggingface
 
-config = pulumi.Config()
-
 endpoint = huggingface.InferenceEndpoint(
     "mistral-7b-tgi",
-    token=config.require_secret("hfToken"),
     model_repository="mistralai/Mistral-7B-Instruct-v0.3",
     model_framework="pytorch",
     model_task="text-generation",
@@ -201,7 +197,6 @@ Create and manage a Hugging Face Hub repository — a model repo or dataset repo
 
 ```typescript
 const endpoint = new huggingface.InferenceEndpoint("llm", {
-    token: config.requireSecret("hfToken"),
     modelRepository: "meta-llama/Meta-Llama-3-8B-Instruct",
     modelFramework: "pytorch",
     modelTask: "text-generation",
@@ -215,8 +210,8 @@ const endpoint = new huggingface.InferenceEndpoint("llm", {
     scaleToZeroTimeout: 60,
 });
 
+const config = new pulumi.Config();
 const demo = new huggingface.Space("llm-demo", {
-    token: config.requireSecret("hfToken"),
     sdk: "gradio",
     hardware: "cpu-basic",
     variables: [{ key: "ENDPOINT_URL", value: endpoint.url }],
@@ -229,7 +224,6 @@ const demo = new huggingface.Space("llm-demo", {
 ```python
 model_repo = huggingface.Repository(
     "my-fine-tuned-llm",
-    token=config.require_secret("hfToken"),
     namespace="my-org",
     repo_type="model",
     private=True,
@@ -237,7 +231,6 @@ model_repo = huggingface.Repository(
 
 training_data = huggingface.Repository(
     "training-dataset",
-    token=config.require_secret("hfToken"),
     namespace="my-org",
     repo_type="dataset",
     private=True,

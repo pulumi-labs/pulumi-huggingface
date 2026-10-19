@@ -17,13 +17,6 @@ return await Deployment.RunAsync(() =>
     var instanceSize    = config.Get("instanceSize")    ?? "x1";
     var endpointType    = config.Get("endpointType")    ?? "protected";
 
-    // Explicit provider so credentials come from project-namespace config,
-    // not environment variables.
-    var provider = new Provider("huggingface", new ProviderArgs
-    {
-        Token = hfToken,
-    });
-
     // Build optional namespace argument.
     var nsArg = string.IsNullOrEmpty(ns) ? null : ns;
 
@@ -44,7 +37,7 @@ return await Deployment.RunAsync(() =>
         MaxReplica         = 2,
         ScaleToZeroTimeout = 15,
         EndpointType       = endpointType,
-    }, new CustomResourceOptions { Provider = provider });
+    });
 
     // Gradio Space wired to the endpoint via environment variable injection.
     // cpu-basic hardware keeps the UI free while compute cost sits on the endpoint.
@@ -62,7 +55,7 @@ return await Deployment.RunAsync(() =>
         {
             new SpaceSecretInputArgs { Key = "HF_TOKEN", Value = hfToken },
         },
-    }, new CustomResourceOptions { Provider = provider });
+    });
 
     return new Dictionary<string, object?>
     {

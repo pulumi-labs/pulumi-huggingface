@@ -9,7 +9,6 @@ import (
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		cfg := config.New(ctx, "")
-		hfToken := cfg.RequireSecret("hfToken")
 		isPrivate := cfg.GetBool("private")
 
 		// Build optional namespace argument — only set when non-empty so the API
@@ -19,22 +18,13 @@ func main() {
 			namespace = pulumi.StringPtr(ns)
 		}
 
-		// Explicit provider so credentials come from project-namespace config,
-		// not environment variables.
-		provider, err := huggingface.NewProvider(ctx, "huggingface", &huggingface.ProviderArgs{
-			Token: hfToken,
-		})
-		if err != nil {
-			return err
-		}
-
 		// Create a model repository on the Hugging Face Hub.
 		// The repository stores model weights, config, and any other artifacts.
 		repo, err := huggingface.NewRepository(ctx, "hf-repo", &huggingface.RepositoryArgs{
 			Namespace: namespace,
 			RepoType:  pulumi.StringPtr("model"),
 			Private:   pulumi.BoolPtr(isPrivate),
-		}, pulumi.Provider(provider))
+		})
 		if err != nil {
 			return err
 		}
@@ -46,7 +36,7 @@ func main() {
 			Sdk:       pulumi.String("gradio"),
 			Hardware:  pulumi.StringPtr("cpu-basic"),
 			Private:   pulumi.BoolPtr(isPrivate),
-		}, pulumi.Provider(provider))
+		})
 		if err != nil {
 			return err
 		}

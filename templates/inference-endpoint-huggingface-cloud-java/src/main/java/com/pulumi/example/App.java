@@ -2,15 +2,12 @@ package com.pulumi.example;
 
 import com.pulumi.Context;
 import com.pulumi.Pulumi;
-import com.pulumi.huggingface.Provider;
-import com.pulumi.huggingface.ProviderArgs;
 import com.pulumi.huggingface.InferenceEndpoint;
 import com.pulumi.huggingface.InferenceEndpointArgs;
 import com.pulumi.huggingface.Space;
 import com.pulumi.huggingface.SpaceArgs;
 import com.pulumi.huggingface.inputs.SpaceVariableInputArgs;
 import com.pulumi.huggingface.inputs.SpaceSecretInputArgs;
-import com.pulumi.resources.CustomResourceOptions;
 
 public class App {
     public static void main(String[] args) {
@@ -28,12 +25,6 @@ public class App {
         var instanceType    = config.get("instanceType").orElse("nvidia-a10g");
         var instanceSize    = config.get("instanceSize").orElse("x1");
         var endpointType    = config.get("endpointType").orElse("protected");
-
-        // Explicit provider so credentials come from project-namespace config,
-        // not environment variables.
-        var provider = new Provider("huggingface", ProviderArgs.builder()
-            .token(hfToken)
-            .build());
 
         // Build optional namespace argument.
         var nsArg = namespace.isEmpty() ? null : namespace;
@@ -54,10 +45,7 @@ public class App {
             .maxReplica(2)
             .scaleToZeroTimeout(15)
             .endpointType(endpointType)
-            .build(),
-            CustomResourceOptions.builder()
-                .provider(provider)
-                .build());
+            .build());
 
         // Gradio Space wired to the endpoint via environment variable injection.
         // cpu-basic hardware keeps the UI free while compute cost sits on the endpoint.
@@ -72,10 +60,7 @@ public class App {
             .secrets(
                 SpaceSecretInputArgs.builder().key("HF_TOKEN").value(hfToken).build()
             )
-            .build(),
-            CustomResourceOptions.builder()
-                .provider(provider)
-                .build());
+            .build());
 
         ctx.export("endpointUrl",    endpoint.url());
         ctx.export("endpointStatus", endpoint.status());
