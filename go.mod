@@ -1,4 +1,4 @@
-module github.com/pulumi/autoregistry/lib/providers/huggingface/provider
+module github.com/pulumi/autoregistry/lib/providers/huggingface
 
 go 1.26.0
 

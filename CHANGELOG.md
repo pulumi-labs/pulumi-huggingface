@@ -4,6 +4,7 @@
 
 ### Changed
 
+- `go.mod`/`go.sum` moved from `provider/` to the provider's top level (module path is now `github.com/pulumi/autoregistry/lib/providers/huggingface`); the Makefile builds from there. No change to the provider binary, schema or SDKs.
 - Examples and templates are mirror-ready: all 6 examples and 12 templates use the default provider (no explicit `Provider` resource, no per-resource `token` argument), so credentials come from `pulumi config set huggingface:token --secret` or `HUGGINGFACE_TOKEN`. The `huggingface-csharp` example and the `huggingface-cloud-csharp` template no longer hit the ambiguous `Config` compile error.
 
 ### Fixed
