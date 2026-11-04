@@ -24,7 +24,7 @@ public class App {
         var region          = config.get("region").orElse("us-east-1");
         var instanceType    = config.get("instanceType").orElse("nvidia-a10g");
         var instanceSize    = config.get("instanceSize").orElse("x1");
-        var endpointType    = config.get("endpointType").orElse("protected");
+        var endpointType    = config.get("endpointType").orElse("authenticated");
 
         // Build optional namespace argument.
         var nsArg = namespace.isEmpty() ? null : namespace;

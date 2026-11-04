@@ -17,7 +17,7 @@ resources:
       instanceSize: x2
       minReplica: 1
       maxReplica: 2
-      endpointType: protected
+      endpointType: authenticated
 
   # Create a model repository for fine-tuned checkpoints
   my-model-repo:

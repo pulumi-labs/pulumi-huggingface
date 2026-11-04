@@ -25,12 +25,24 @@ func TestProvider_DoesNotPanic(t *testing.T) {
 // TestProviderConfig_TokenIsSecret ensures the ProviderConfig type declares Token
 // as secret so that the Pulumi engine encrypts it in state.
 func TestProviderConfig_TokenIsSecret(t *testing.T) {
-	// Verify by inspecting the struct tag — the `provider:"secret"` tag must be present.
-	// This is a compile-time check baked into the struct definition.
-	cfg := provider.ProviderConfig{}
-	_ = cfg // used
-	// If ProviderConfig.Token did not have `provider:"secret"`, the infer framework
-	// would not mark it as secret in the schema. The test is a compile guard.
+	s := newEnvTestServer(t)
+	resp, err := s.GetSchema(pgp.GetSchemaRequest{})
+	if err != nil {
+		t.Fatalf("GetSchema failed: %v", err)
+	}
+	var spec struct {
+		Config struct {
+			Variables map[string]struct {
+				Secret bool `json:"secret"`
+			} `json:"variables"`
+		} `json:"config"`
+	}
+	if err := json.Unmarshal([]byte(resp.Schema), &spec); err != nil {
+		t.Fatalf("schema is not valid JSON: %v", err)
+	}
+	if !spec.Config.Variables["token"].Secret {
+		t.Fatal("config token must be declared secret in the schema")
+	}
 }
 
 // TestInferenceEndpoint_ArgDefaults verifies that zero-value args produce
@@ -48,7 +60,7 @@ func TestInferenceEndpoint_ArgDefaults(t *testing.T) {
 	}
 	// Minimal required fields are set; optional fields default via nil.
 	if args.EndpointType != nil {
-		t.Error("EndpointType should default to nil (resolved to 'protected' at runtime)")
+		t.Error("EndpointType should default to nil (resolved to 'authenticated' at runtime)")
 	}
 	if args.MinReplica != nil {
 		t.Error("MinReplica should default to nil (resolved to 1 at runtime)")
@@ -88,8 +100,9 @@ func TestSpace_HardwareValues(t *testing.T) {
 		{provider.SpaceHardwareA10GSmall, "a10g-small"},
 		{provider.SpaceHardwareA10GLarge, "a10g-large"},
 		{provider.SpaceHardwareA100Large, "a100-large"},
-		{provider.SpaceHardwareH100, "h100"},
-		{provider.SpaceHardwareH100x8, "h100x8"},
+		{provider.SpaceHardwareL4x1, "l4x1"},
+		{provider.SpaceHardwareA100x4, "a100x4"},
+		{provider.SpaceHardwareA100x8, "a100x8"},
 	}
 	for _, c := range cases {
 		if string(c.hw) != c.expected {
@@ -114,7 +127,7 @@ func TestEndpointType_Values(t *testing.T) {
 		expected string
 	}{
 		{provider.EndpointTypePublic, "public"},
-		{provider.EndpointTypeProtected, "protected"},
+		{provider.EndpointTypeAuthenticated, "authenticated"},
 		{provider.EndpointTypePrivate, "private"},
 	}
 	for _, c := range cases {
@@ -141,13 +154,6 @@ func TestEndpointState_Values(t *testing.T) {
 			t.Errorf("EndpointState constant is empty string")
 		}
 	}
-}
-
-// TestClient_Construction verifies that newHFClient does not panic.
-func TestClient_Construction(t *testing.T) {
-	// newHFClient is unexported; this test is a package-level compilation guard.
-	// The public API surface is tested via provider.New() above.
-	_ = provider.New
 }
 
 // TestSplitID_Valid checks valid namespace/name IDs.

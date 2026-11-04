@@ -21,7 +21,7 @@ public class App {
                     .instanceSize("x2")
                     .minReplica(1)
                     .maxReplica(2)
-                    .endpointType("protected")
+                    .endpointType("authenticated")
                     .build());
 
             ctx.export("endpointUrl", endpoint.url());

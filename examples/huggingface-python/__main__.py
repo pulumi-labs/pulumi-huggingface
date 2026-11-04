@@ -14,7 +14,7 @@ endpoint = huggingface.InferenceEndpoint(
     instance_size="x4",
     min_replica=1,
     max_replica=3,
-    endpoint_type="protected",
+    endpoint_type="authenticated",
 )
 
 # Create a dataset repository for storing embeddings metadata

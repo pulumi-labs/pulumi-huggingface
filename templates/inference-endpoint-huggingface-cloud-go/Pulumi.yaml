@@ -30,5 +30,5 @@ template:
       description: Instance size multiplier (x1, x2, x4, x8).
       default: x1
     endpointType:
-      description: Access control for the endpoint (public, protected, or private).
-      default: protected
+      description: Access control for the endpoint (public, authenticated, or private).
+      default: authenticated

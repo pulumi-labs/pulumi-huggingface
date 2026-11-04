@@ -14,7 +14,9 @@ import (
 	"time"
 )
 
-const (
+// Base URLs of the two API planes. They are variables so tests can point the
+// client at an in-memory fake server.
+var (
 	endpointsBase = "https://api.endpoints.huggingface.cloud/v2"
 	hubBase       = "https://huggingface.co"
 )
@@ -61,7 +63,7 @@ func (c *hfClient) do(method, url string, body any) ([]byte, int, error) {
 		return nil, resp.StatusCode, fmt.Errorf("read response body: %w", err)
 	}
 	if resp.StatusCode >= 400 {
-		return nil, resp.StatusCode, fmt.Errorf("API error %d %s: %s", resp.StatusCode, url, string(respBody))
+		return respBody, resp.StatusCode, fmt.Errorf("API error %d %s: %s", resp.StatusCode, url, string(respBody))
 	}
 	return respBody, resp.StatusCode, nil
 }
@@ -70,27 +72,29 @@ func (c *hfClient) do(method, url string, body any) ([]byte, int, error) {
 // Inference Endpoints API types and operations
 // ---------------------------------------------------------------------------
 
-// EndpointType controls access to the inference endpoint.
+// EndpointType controls access to the inference endpoint. The Inference
+// Endpoints API accepts public, authenticated and private; the legacy
+// "protected" value has been removed.
 type EndpointType string
 
 const (
-	EndpointTypePublic    EndpointType = "public"
-	EndpointTypeProtected EndpointType = "protected"
-	EndpointTypePrivate   EndpointType = "private"
+	EndpointTypePublic        EndpointType = "public"
+	EndpointTypeAuthenticated EndpointType = "authenticated"
+	EndpointTypePrivate       EndpointType = "private"
 )
 
 // EndpointState represents the lifecycle state of an inference endpoint.
 type EndpointState string
 
 const (
-	EndpointStatePending       EndpointState = "pending"
-	EndpointStateInitializing  EndpointState = "initializing"
-	EndpointStateUpdating      EndpointState = "updating"
-	EndpointStateUpdateFailed  EndpointState = "updateFailed"
-	EndpointStateRunning       EndpointState = "running"
-	EndpointStatePaused        EndpointState = "paused"
-	EndpointStateFailed        EndpointState = "failed"
-	EndpointStateScaledToZero  EndpointState = "scaledToZero"
+	EndpointStatePending      EndpointState = "pending"
+	EndpointStateInitializing EndpointState = "initializing"
+	EndpointStateUpdating     EndpointState = "updating"
+	EndpointStateUpdateFailed EndpointState = "updateFailed"
+	EndpointStateRunning      EndpointState = "running"
+	EndpointStatePaused       EndpointState = "paused"
+	EndpointStateFailed       EndpointState = "failed"
+	EndpointStateScaledToZero EndpointState = "scaledToZero"
 )
 
 // EndpointScalingMeasure controls the autoscaling metric.
@@ -115,44 +119,50 @@ type EndpointCompute struct {
 	Scaling      EndpointScaling `json:"scaling"`
 }
 
-// EndpointCustomImage allows deploying a custom container image.
+// EndpointCustomImage is the "custom" container variant of model.image.
 type EndpointCustomImage struct {
 	URL         string            `json:"url"`
 	Credentials *ImageCredentials `json:"credentials,omitempty"`
-	Health      *ImageHealth      `json:"health,omitempty"`
+	HealthRoute *string           `json:"healthRoute,omitempty"`
 	Port        *int              `json:"port,omitempty"`
-	EnvVars     map[string]string `json:"env,omitempty"`
 }
 
 // ImageCredentials holds credentials for a private container registry.
 type ImageCredentials struct {
 	Username string `json:"username"`
-	Password string `json:"password"`
+	Password string `json:"password,omitempty"`
 }
 
-// ImageHealth configures the health check path for the container.
-type ImageHealth struct {
-	Route string `json:"route"`
-}
-
-// EndpointImage specifies the container configuration.
+// EndpointImage is the model.image union. The API requires exactly one
+// variant: {"huggingface": {}} for the stock Hugging Face image, or
+// {"custom": {...}} for a user-supplied container. Other variants (tgi, vLLM,
+// ...) exist; they are ignored when read back.
 type EndpointImage struct {
-	Custom *EndpointCustomImage `json:"custom,omitempty"`
+	Huggingface *struct{}            `json:"huggingface,omitempty"`
+	Custom      *EndpointCustomImage `json:"custom,omitempty"`
 }
 
 // EndpointModel describes the model to serve.
 type EndpointModel struct {
-	Repository string         `json:"repository"`
-	Framework  string         `json:"framework"`
-	Task       string         `json:"task"`
-	Revision   *string        `json:"revision,omitempty"`
-	Image      *EndpointImage `json:"image,omitempty"`
+	Repository string             `json:"repository,omitempty"`
+	Framework  string             `json:"framework,omitempty"`
+	Task       string             `json:"task,omitempty"`
+	Revision   *string            `json:"revision,omitempty"`
+	Image      *EndpointImage     `json:"image,omitempty"`
+	Env        *map[string]string `json:"env,omitempty"`
 }
 
 // EndpointProvider specifies the cloud vendor and region.
 type EndpointProvider struct {
-	Vendor string `json:"vendor"`
-	Region string `json:"region"`
+	Vendor string `json:"vendor,omitempty"`
+	Region string `json:"region,omitempty"`
+}
+
+// PrivateService configures AWS PrivateLink for a private endpoint.
+type PrivateService struct {
+	AccountID string `json:"accountId,omitempty"`
+	Region    string `json:"region,omitempty"`
+	Shared    bool   `json:"shared,omitempty"`
 }
 
 // EndpointStatus is the read-only runtime status of an endpoint.
@@ -164,31 +174,39 @@ type EndpointStatus struct {
 
 // EndpointDetails is the full endpoint representation returned by the API.
 type EndpointDetails struct {
-	Name      string           `json:"name"`
-	Namespace string           `json:"namespace"`
-	Type      EndpointType     `json:"type"`
-	AccountID *string          `json:"accountId,omitempty"`
-	Compute   EndpointCompute  `json:"compute"`
-	Model     EndpointModel    `json:"model"`
-	Provider  EndpointProvider `json:"provider"`
-	Status    EndpointStatus   `json:"status"`
+	Name           string           `json:"name"`
+	Type           EndpointType     `json:"type"`
+	Compute        EndpointCompute  `json:"compute"`
+	Model          EndpointModel    `json:"model"`
+	Provider       EndpointProvider `json:"provider"`
+	PrivateService *PrivateService  `json:"privateService,omitempty"`
+	Status         EndpointStatus   `json:"status"`
 }
 
 // CreateEndpointRequest is the payload for POST /endpoint/{namespace}.
 type CreateEndpointRequest struct {
-	Name      string           `json:"name"`
-	Type      EndpointType     `json:"type"`
-	AccountID *string          `json:"accountId,omitempty"`
-	Compute   EndpointCompute  `json:"compute"`
-	Model     EndpointModel    `json:"model"`
-	Provider  EndpointProvider `json:"provider"`
+	Name           string           `json:"name"`
+	Type           EndpointType     `json:"type"`
+	Compute        EndpointCompute  `json:"compute"`
+	Model          EndpointModel    `json:"model"`
+	Provider       EndpointProvider `json:"provider"`
+	PrivateService *PrivateService  `json:"privateService,omitempty"`
 }
 
 // UpdateEndpointRequest is the payload for PUT /endpoint/{namespace}/{name}.
 type UpdateEndpointRequest struct {
-	Type    *EndpointType    `json:"type,omitempty"`
-	Compute *EndpointCompute `json:"compute,omitempty"`
-	Model   *EndpointModel   `json:"model,omitempty"`
+	Type     *EndpointType     `json:"type,omitempty"`
+	Compute  *EndpointCompute  `json:"compute,omitempty"`
+	Model    *EndpointModel    `json:"model,omitempty"`
+	Provider *EndpointProvider `json:"provider,omitempty"`
+}
+
+func decodeEndpoint(body []byte) (*EndpointDetails, error) {
+	var out EndpointDetails
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, fmt.Errorf("unmarshal endpoint: %w", err)
+	}
+	return &out, nil
 }
 
 func (c *hfClient) CreateEndpoint(namespace string, req CreateEndpointRequest) (*EndpointDetails, error) {
@@ -197,27 +215,20 @@ func (c *hfClient) CreateEndpoint(namespace string, req CreateEndpointRequest) (
 	if err != nil {
 		return nil, fmt.Errorf("create endpoint: %w", err)
 	}
-	var out EndpointDetails
-	if err := json.Unmarshal(body, &out); err != nil {
-		return nil, fmt.Errorf("unmarshal endpoint: %w", err)
-	}
-	return &out, nil
+	return decodeEndpoint(body)
 }
 
+// GetEndpoint returns nil, nil when the endpoint does not exist.
 func (c *hfClient) GetEndpoint(namespace, name string) (*EndpointDetails, error) {
 	url := fmt.Sprintf("%s/endpoint/%s/%s", endpointsBase, namespace, name)
 	body, statusCode, err := c.do("GET", url, nil)
 	if err != nil {
-		if statusCode == 404 {
-			return nil, nil // not found
+		if statusCode == http.StatusNotFound {
+			return nil, nil
 		}
 		return nil, fmt.Errorf("get endpoint: %w", err)
 	}
-	var out EndpointDetails
-	if err := json.Unmarshal(body, &out); err != nil {
-		return nil, fmt.Errorf("unmarshal endpoint: %w", err)
-	}
-	return &out, nil
+	return decodeEndpoint(body)
 }
 
 func (c *hfClient) UpdateEndpoint(namespace, name string, req UpdateEndpointRequest) (*EndpointDetails, error) {
@@ -226,36 +237,39 @@ func (c *hfClient) UpdateEndpoint(namespace, name string, req UpdateEndpointRequ
 	if err != nil {
 		return nil, fmt.Errorf("update endpoint: %w", err)
 	}
-	var out EndpointDetails
-	if err := json.Unmarshal(body, &out); err != nil {
-		return nil, fmt.Errorf("unmarshal endpoint: %w", err)
-	}
-	return &out, nil
+	return decodeEndpoint(body)
 }
 
+// DeleteEndpoint is idempotent: an endpoint that is already gone is not an error.
 func (c *hfClient) DeleteEndpoint(namespace, name string) error {
 	url := fmt.Sprintf("%s/endpoint/%s/%s", endpointsBase, namespace, name)
-	_, _, err := c.do("DELETE", url, nil)
+	_, statusCode, err := c.do("DELETE", url, nil)
 	if err != nil {
+		if statusCode == http.StatusNotFound {
+			return nil
+		}
 		return fmt.Errorf("delete endpoint: %w", err)
 	}
 	return nil
 }
 
 // ---------------------------------------------------------------------------
-// Hub API types and operations — Spaces
+// Hub API types and operations: repositories and Spaces
 // ---------------------------------------------------------------------------
 
 // SpaceSDK is the frontend framework for a Space.
 type SpaceSDK string
 
 const (
-	SpaceSDKGradio  SpaceSDK = "gradio"
-	SpaceSDKDocker  SpaceSDK = "docker"
-	SpaceSDKStatic  SpaceSDK = "static"
+	SpaceSDKGradio    SpaceSDK = "gradio"
+	SpaceSDKStreamlit SpaceSDK = "streamlit"
+	SpaceSDKDocker    SpaceSDK = "docker"
+	SpaceSDKStatic    SpaceSDK = "static"
 )
 
-// SpaceHardware is the compute tier for a Space.
+// SpaceHardware is the compute tier for a Space. The Hub owns this enum and
+// adds flavors over time (h200, l4x*, l40sx*, a100x*, rtx-pro-6000*, ...), so
+// the provider does not validate it beyond rejecting the retired h100 names.
 type SpaceHardware string
 
 const (
@@ -263,20 +277,14 @@ const (
 	SpaceHardwareCPUUpgrade SpaceHardware = "cpu-upgrade"
 	SpaceHardwareT4Small    SpaceHardware = "t4-small"
 	SpaceHardwareT4Medium   SpaceHardware = "t4-medium"
+	SpaceHardwareL4x1       SpaceHardware = "l4x1"
+	SpaceHardwareL4x4       SpaceHardware = "l4x4"
+	SpaceHardwareL40Sx1     SpaceHardware = "l40sx1"
 	SpaceHardwareA10GSmall  SpaceHardware = "a10g-small"
 	SpaceHardwareA10GLarge  SpaceHardware = "a10g-large"
 	SpaceHardwareA100Large  SpaceHardware = "a100-large"
-	SpaceHardwareH100       SpaceHardware = "h100"
-	SpaceHardwareH100x8     SpaceHardware = "h100x8"
-)
-
-// SpaceVisibility controls who can view the Space.
-type SpaceVisibility string
-
-const (
-	SpaceVisibilityPublic    SpaceVisibility = "public"
-	SpaceVisibilityPrivate   SpaceVisibility = "private"
-	SpaceVisibilityProtected SpaceVisibility = "protected"
+	SpaceHardwareA100x4     SpaceHardware = "a100x4"
+	SpaceHardwareA100x8     SpaceHardware = "a100x8"
 )
 
 // SpaceEnvVar is a non-secret environment variable for a Space.
@@ -295,29 +303,61 @@ type SpaceSecret struct {
 
 // CreateRepoRequest is the payload for POST /api/repos/create.
 type CreateRepoRequest struct {
-	Name         string          `json:"name"`
-	Type         string          `json:"type"` // "model" | "dataset" | "space"
-	Organization *string         `json:"organization,omitempty"`
-	Private      *bool           `json:"private,omitempty"`
-	Visibility   *string         `json:"visibility,omitempty"`
-	SDK          *string         `json:"sdk,omitempty"`
-	Hardware     *string         `json:"hardware,omitempty"`
-	SleepTime    *int            `json:"sleepTimeSeconds,omitempty"`
-	Secrets      []SpaceSecret   `json:"secrets,omitempty"`
-	Variables    []SpaceEnvVar   `json:"variables,omitempty"`
+	Name         string        `json:"name"`
+	Type         string        `json:"type"` // "model" | "dataset" | "space"
+	Organization *string       `json:"organization,omitempty"`
+	Private      *bool         `json:"private,omitempty"`
+	SDK          *string       `json:"sdk,omitempty"`
+	Hardware     *string       `json:"hardware,omitempty"`
+	SleepTime    *int          `json:"sleepTimeSeconds,omitempty"`
+	Secrets      []SpaceSecret `json:"secrets,omitempty"`
+	Variables    []SpaceEnvVar `json:"variables,omitempty"`
+}
+
+// SpaceRuntime is the runtime block of a Space (hardware is nested under
+// runtime.hardware, not at the top level).
+type SpaceRuntime struct {
+	Stage    string `json:"stage"`
+	Hardware *struct {
+		Current   *string `json:"current"`
+		Requested *string `json:"requested"`
+	} `json:"hardware"`
+	GCTimeout *int `json:"gcTimeout"`
 }
 
 // RepoDetails is the response from the Hub API for a repository.
 type RepoDetails struct {
-	ID           string  `json:"id"` // "namespace/name"
-	Name         string  `json:"name"`
-	Private      bool    `json:"private"`
-	Author       string  `json:"author"`
-	SHA          string  `json:"sha"`
-	LastModified string  `json:"lastModified"`
-	// Spaces-specific fields
-	SDK      *string `json:"sdk,omitempty"`
-	Hardware *string `json:"hardware,omitempty"`
+	ID      string        `json:"id"` // "namespace/name"
+	Name    string        `json:"name"`
+	Private bool          `json:"private"`
+	SDK     *string       `json:"sdk,omitempty"`
+	Runtime *SpaceRuntime `json:"runtime,omitempty"`
+}
+
+// EffectiveHardware returns the hardware the Space is configured for: the
+// requested flavor if a request is pending or recorded, else the current one.
+func (r *RepoDetails) EffectiveHardware() (string, bool) {
+	if r.Runtime == nil || r.Runtime.Hardware == nil {
+		return "", false
+	}
+	if h := r.Runtime.Hardware.Requested; h != nil && *h != "" {
+		return *h, true
+	}
+	if h := r.Runtime.Hardware.Current; h != nil && *h != "" {
+		return *h, true
+	}
+	return "", false
+}
+
+func repoAPIPath(repoType string) string {
+	switch repoType {
+	case "space":
+		return "spaces"
+	case "dataset":
+		return "datasets"
+	default:
+		return "models"
+	}
 }
 
 func (c *hfClient) CreateRepo(req CreateRepoRequest) (*RepoDetails, error) {
@@ -333,20 +373,13 @@ func (c *hfClient) CreateRepo(req CreateRepoRequest) (*RepoDetails, error) {
 	return &out, nil
 }
 
+// GetRepo returns nil, nil when the repository does not exist.
 func (c *hfClient) GetRepo(repoType, namespace, name string) (*RepoDetails, error) {
-	var url string
-	switch repoType {
-	case "space":
-		url = fmt.Sprintf("%s/api/spaces/%s/%s", hubBase, namespace, name)
-	case "dataset":
-		url = fmt.Sprintf("%s/api/datasets/%s/%s", hubBase, namespace, name)
-	default:
-		url = fmt.Sprintf("%s/api/models/%s/%s", hubBase, namespace, name)
-	}
+	url := fmt.Sprintf("%s/api/%s/%s/%s", hubBase, repoAPIPath(repoType), namespace, name)
 	body, statusCode, err := c.do("GET", url, nil)
 	if err != nil {
-		if statusCode == 404 {
-			return nil, nil // not found
+		if statusCode == http.StatusNotFound {
+			return nil, nil
 		}
 		return nil, fmt.Errorf("get repo: %w", err)
 	}
@@ -357,6 +390,7 @@ func (c *hfClient) GetRepo(repoType, namespace, name string) (*RepoDetails, erro
 	return &out, nil
 }
 
+// DeleteRepo is idempotent: a repository that is already gone is not an error.
 func (c *hfClient) DeleteRepo(repoType, namespace, name string) error {
 	url := fmt.Sprintf("%s/api/repos/delete", hubBase)
 	payload := map[string]string{
@@ -366,9 +400,23 @@ func (c *hfClient) DeleteRepo(repoType, namespace, name string) error {
 	if namespace != "" {
 		payload["organization"] = namespace
 	}
-	_, _, err := c.do("DELETE", url, payload)
+	_, statusCode, err := c.do("DELETE", url, payload)
 	if err != nil {
+		if statusCode == http.StatusNotFound {
+			return nil
+		}
 		return fmt.Errorf("delete repo: %w", err)
+	}
+	return nil
+}
+
+// UpdateRepoVisibility changes a repository's visibility through
+// PUT /api/{type}s/{namespace}/{name}/settings.
+func (c *hfClient) UpdateRepoVisibility(repoType, namespace, name string, private bool) error {
+	url := fmt.Sprintf("%s/api/%s/%s/%s/settings", hubBase, repoAPIPath(repoType), namespace, name)
+	_, _, err := c.do("PUT", url, map[string]bool{"private": private})
+	if err != nil {
+		return fmt.Errorf("update %s visibility: %w", repoType, err)
 	}
 	return nil
 }
@@ -376,30 +424,96 @@ func (c *hfClient) DeleteRepo(repoType, namespace, name string) error {
 // UpdateSpaceHardware changes the hardware tier for a Space.
 func (c *hfClient) UpdateSpaceHardware(namespace, name string, hardware SpaceHardware) error {
 	url := fmt.Sprintf("%s/api/spaces/%s/%s/hardware", hubBase, namespace, name)
-	payload := map[string]string{"flavor": string(hardware)}
-	_, _, err := c.do("POST", url, payload)
+	_, _, err := c.do("POST", url, map[string]string{"flavor": string(hardware)})
 	if err != nil {
 		return fmt.Errorf("update space hardware: %w", err)
 	}
 	return nil
 }
 
-// UpdateSpaceSecrets replaces all secrets for a Space.
-func (c *hfClient) UpdateSpaceSecrets(namespace, name string, secrets []SpaceSecret) error {
-	url := fmt.Sprintf("%s/api/spaces/%s/%s/secrets", hubBase, namespace, name)
-	_, _, err := c.do("POST", url, secrets)
+// UpdateSpaceSleepTime sets the idle time (seconds) before the Space sleeps.
+func (c *hfClient) UpdateSpaceSleepTime(namespace, name string, seconds int) error {
+	url := fmt.Sprintf("%s/api/spaces/%s/%s/sleeptime", hubBase, namespace, name)
+	_, _, err := c.do("POST", url, map[string]int{"seconds": seconds})
 	if err != nil {
-		return fmt.Errorf("update space secrets: %w", err)
+		return fmt.Errorf("update space sleep time: %w", err)
 	}
 	return nil
 }
 
-// UpdateSpaceVariables replaces all non-secret environment variables for a Space.
-func (c *hfClient) UpdateSpaceVariables(namespace, name string, vars []SpaceEnvVar) error {
-	url := fmt.Sprintf("%s/api/spaces/%s/%s/variables", hubBase, namespace, name)
-	_, _, err := c.do("POST", url, vars)
-	if err != nil {
-		return fmt.Errorf("update space variables: %w", err)
+// UpsertSpaceSecret adds or replaces one secret (one {key,value,description}
+// object per call, as the Hub API expects).
+func (c *hfClient) UpsertSpaceSecret(namespace, name string, s SpaceSecret) error {
+	url := fmt.Sprintf("%s/api/spaces/%s/%s/secrets", hubBase, namespace, name)
+	if _, _, err := c.do("POST", url, s); err != nil {
+		return fmt.Errorf("set space secret %q: %w", s.Key, err)
 	}
 	return nil
+}
+
+// DeleteSpaceSecret removes one secret; a missing key is not an error.
+func (c *hfClient) DeleteSpaceSecret(namespace, name, key string) error {
+	url := fmt.Sprintf("%s/api/spaces/%s/%s/secrets", hubBase, namespace, name)
+	if _, code, err := c.do("DELETE", url, map[string]string{"key": key}); err != nil && code != http.StatusNotFound {
+		return fmt.Errorf("delete space secret %q: %w", key, err)
+	}
+	return nil
+}
+
+// UpsertSpaceVariable adds or replaces one variable.
+func (c *hfClient) UpsertSpaceVariable(namespace, name string, v SpaceEnvVar) error {
+	url := fmt.Sprintf("%s/api/spaces/%s/%s/variables", hubBase, namespace, name)
+	if _, _, err := c.do("POST", url, v); err != nil {
+		return fmt.Errorf("set space variable %q: %w", v.Key, err)
+	}
+	return nil
+}
+
+// DeleteSpaceVariable removes one variable; a missing key is not an error.
+func (c *hfClient) DeleteSpaceVariable(namespace, name, key string) error {
+	url := fmt.Sprintf("%s/api/spaces/%s/%s/variables", hubBase, namespace, name)
+	if _, code, err := c.do("DELETE", url, map[string]string{"key": key}); err != nil && code != http.StatusNotFound {
+		return fmt.Errorf("delete space variable %q: %w", key, err)
+	}
+	return nil
+}
+
+// GetSpaceVariables lists the Space's variables keyed by name.
+func (c *hfClient) GetSpaceVariables(namespace, name string) (map[string]SpaceEnvVar, error) {
+	url := fmt.Sprintf("%s/api/spaces/%s/%s/variables", hubBase, namespace, name)
+	body, _, err := c.do("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get space variables: %w", err)
+	}
+	var raw map[string]struct {
+		Value       string `json:"value"`
+		Description string `json:"description"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, fmt.Errorf("unmarshal space variables: %w", err)
+	}
+	out := make(map[string]SpaceEnvVar, len(raw))
+	for k, v := range raw {
+		out[k] = SpaceEnvVar{Key: k, Value: v.Value, Description: v.Description}
+	}
+	return out, nil
+}
+
+// GetSpaceSecretKeys lists the names of the Space's secrets. Values are
+// write-only and never returned by the API.
+func (c *hfClient) GetSpaceSecretKeys(namespace, name string) (map[string]bool, error) {
+	url := fmt.Sprintf("%s/api/spaces/%s/%s/secrets", hubBase, namespace, name)
+	body, _, err := c.do("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get space secrets: %w", err)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, fmt.Errorf("unmarshal space secrets: %w", err)
+	}
+	out := make(map[string]bool, len(raw))
+	for k := range raw {
+		out[k] = true
+	}
+	return out, nil
 }

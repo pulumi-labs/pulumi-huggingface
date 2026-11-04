@@ -47,7 +47,7 @@ Tokens must have **write** access to create endpoints, Spaces, and repositories.
 
 ### `InferenceEndpoint`
 
-Deploy a dedicated compute instance that serves a Hugging Face model for production inference. Supports public, protected, and private access types across AWS, Azure, and GCP.
+Deploy a dedicated compute instance that serves a Hugging Face model for production inference. Supports public, authenticated, and private access types across AWS, Azure, and GCP.
 
 **Key features:**
 - GPU and CPU hardware (NVIDIA A10G, H100, Intel Ice Lake, AWS Inferentia 2)
@@ -69,7 +69,7 @@ Deploy a dedicated compute instance that serves a Hugging Face model for product
 | `instanceType` | string | ✓ | — | Instance family (e.g. `"nvidia-a10g"`, `"intel-icl"`) |
 | `instanceSize` | string | ✓ | — | Instance size: `"x1"`, `"x2"`, `"x4"`, `"x8"` |
 | `token` | string | — | provider token | Per-resource API token override |
-| `namespace` | string | — | token owner | HF user or org namespace |
+| `namespace` | string | — | token owner | HF user or org namespace. Changing it replaces the resource |
 | `modelRevision` | string | — | latest | Git SHA or branch to pin the model |
 | `customImageUrl` | string | — | — | Custom container image URL (e.g. TGI image) |
 | `customImageEnvVars` | map[string]string | — | — | Environment variables for custom container |
@@ -77,16 +77,19 @@ Deploy a dedicated compute instance that serves a Hugging Face model for product
 | `customImageHealthRoute` | string | — | — | Health check path (e.g. `"/health"`) |
 | `minReplica` | int | — | 1 | Minimum replicas (0 = scale-to-zero enabled) |
 | `maxReplica` | int | — | 1 | Maximum replicas for autoscaling |
-| `scaleToZeroTimeout` | int | — | 60 | Idle minutes before scaling to zero |
-| `endpointType` | string | — | `"protected"` | Access type: `"public"`, `"protected"`, `"private"` |
-| `accountId` | string | — | — | AWS account ID for PrivateLink (private endpoints) |
+| `scaleToZeroTimeout` | int | — | 15 (API default) | Idle minutes before scaling to zero |
+| `endpointType` | string | — | `"authenticated"` | Access type: `"public"`, `"authenticated"`, `"private"` |
+| `accountId` | string | — | — | AWS account ID for PrivateLink (private endpoints); sent as `privateService.accountId`. Changing it replaces the endpoint |
+| `privateLinkRegion` | string | — | `region` | AWS PrivateLink entry-point region (`"us-east-1"` or `"eu-west-1"`). Changing it replaces the endpoint |
 
 #### Outputs
 
 | Output | Type | Description |
 |---|---|---|
-| `url` | string | HTTPS inference URL (set when endpoint is running) |
-| `status` | string | Lifecycle state: `pending`, `initializing`, `running`, `paused`, `scaledToZero`, `failed` |
+| `url` | string | HTTPS inference URL (create and update wait for the endpoint to leave `pending`/`initializing`/`updating`, so it is set on return) |
+| `status` | string | Lifecycle state: `pending`, `initializing`, `updating`, `running`, `paused`, `scaledToZero`, `failed`, `updateFailed` |
+
+Import with `pulumi import huggingface:index:InferenceEndpoint <name> <namespace>/<name>`. Refresh reads the model, image, compute, scaling, type, provider and private-link settings back, so out-of-band changes show up in `pulumi preview` and are reverted by `pulumi up`.
 
 #### Example: LLM with scale-to-zero
 
@@ -106,7 +109,7 @@ const endpoint = new huggingface.InferenceEndpoint("llama-3-8b", {
     minReplica: 0,
     maxReplica: 2,
     scaleToZeroTimeout: 60,
-    endpointType: "protected",
+    endpointType: "authenticated",
 });
 
 export const endpointUrl = endpoint.url;
@@ -135,7 +138,7 @@ endpoint = huggingface.InferenceEndpoint(
     instance_size="x1",
     min_replica=1,
     max_replica=4,
-    endpoint_type="protected",
+    endpoint_type="authenticated",
 )
 ```
 
@@ -149,16 +152,16 @@ Create and manage a [Hugging Face Space](https://huggingface.co/docs/hub/spaces)
 
 | Input | Type | Required | Default | Description |
 |---|---|---|---|---|
-| `sdk` | string | ✓ | — | Frontend framework: `"gradio"`, `"docker"`, `"static"` |
+| `sdk` | string | ✓ | — | Frontend framework: `"gradio"`, `"streamlit"`, `"docker"`, `"static"`. Changing it replaces the Space |
 | `token` | string | — | provider token | Per-resource API token override |
-| `namespace` | string | — | token owner | HF user or org namespace |
+| `namespace` | string | — | token owner | HF user or org namespace. Changing it replaces the resource |
 | `hardware` | string | — | `"cpu-basic"` | Compute tier (see hardware options below) |
 | `private` | bool | — | `false` | Whether the Space is private |
-| `sleepTimeSeconds` | int | — | 3600 | Idle seconds before hibernation; -1 to disable |
+| `sleepTimeSeconds` | int | — | unmanaged | Idle seconds before the Space sleeps (upgraded hardware only) |
 | `secrets` | list | — | — | Secret env vars (values are write-only) |
 | `variables` | list | — | — | Non-secret env vars |
 
-**Hardware options:** `cpu-basic`, `cpu-upgrade`, `t4-small`, `t4-medium`, `a10g-small`, `a10g-large`, `a100-large`, `h100`, `h100x8`
+**Hardware options:** `cpu-basic`, `cpu-upgrade`, `t4-small`, `t4-medium`, `a10g-small`, `a10g-large`, `a100-large`, `a100x4`, `a100x8`, `l4x1`, `l40sx1`, and the other flavors the Hub lists
 
 #### Outputs
 
@@ -166,6 +169,8 @@ Create and manage a [Hugging Face Space](https://huggingface.co/docs/hub/spaces)
 |---|---|---|
 | `spaceId` | string | Canonical ID: `namespace/name` |
 | `url` | string | Public URL of the Space |
+
+Import with `pulumi import huggingface:index:Space <name> <namespace>/<name>`. Variables are imported with their values; secret values are write-only on the Hub, so an import adopts none and the program must supply them. Variables and secrets are synced key by key: keys removed from the program are deleted from the Space.
 
 ---
 
@@ -178,8 +183,8 @@ Create and manage a Hugging Face Hub repository — a model repo or dataset repo
 | Input | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `token` | string | — | provider token | Per-resource API token override |
-| `namespace` | string | — | token owner | HF user or org namespace |
-| `repoType` | string | — | `"model"` | Repository type: `"model"` or `"dataset"` |
+| `namespace` | string | — | token owner | HF user or org namespace. Changing it replaces the resource |
+| `repoType` | string | — | `"model"` | Repository type: `"model"` or `"dataset"`. Changing it replaces the repository |
 | `private` | bool | — | `false` | Whether the repository is private |
 
 #### Outputs
@@ -188,6 +193,8 @@ Create and manage a Hugging Face Hub repository — a model repo or dataset repo
 |---|---|---|
 | `repoId` | string | Canonical ID: `namespace/name` |
 | `url` | string | Web URL of the repository |
+
+The Pulumi resource ID is `namespace/name` for a model and `datasets/namespace/name` for a dataset. Import with `pulumi import huggingface:index:Repository <name> <namespace>/<name>` or `... datasets/<namespace>/<name>`. Visibility changes are applied in place.
 
 ---
 

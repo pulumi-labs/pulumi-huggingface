@@ -38,7 +38,7 @@ func main() {
 			instanceSize = "x1"
 		}
 		if endpointType == "" {
-			endpointType = "protected"
+			endpointType = "authenticated"
 		}
 
 		// Build optional namespace argument.

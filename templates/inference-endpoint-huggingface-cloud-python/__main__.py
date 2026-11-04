@@ -10,7 +10,7 @@ vendor           = config.get("vendor")          or "aws"
 region           = config.get("region")          or "us-east-1"
 instance_type    = config.get("instanceType")    or "nvidia-a10g"
 instance_size    = config.get("instanceSize")    or "x1"
-endpoint_type    = config.get("endpointType")    or "protected"
+endpoint_type    = config.get("endpointType")    or "authenticated"
 
 # Deploy a dedicated GPU inference endpoint.
 # min_replica=0 enables scale-to-zero so idle time costs nothing.

@@ -17,7 +17,7 @@ return await Deployment.RunAsync(() =>
         InstanceSize = "x2",
         MinReplica = 1,
         MaxReplica = 2,
-        EndpointType = "protected",
+        EndpointType = "authenticated",
     });
 
     return new Dictionary<string, object?>

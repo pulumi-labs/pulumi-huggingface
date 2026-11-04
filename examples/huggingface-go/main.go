@@ -25,7 +25,7 @@ func main() {
 			InstanceSize: pulumi.String("x1"),
 			MinReplica:   pulumi.IntPtr(1),
 			MaxReplica:   pulumi.IntPtr(4),
-			EndpointType: pulumi.StringPtr("protected"),
+			EndpointType: pulumi.StringPtr("authenticated"),
 		})
 		if err != nil {
 			return err

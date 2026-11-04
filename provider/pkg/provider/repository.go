@@ -3,7 +3,9 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	p "github.com/pulumi/pulumi-go-provider"
 	"github.com/pulumi/pulumi-go-provider/infer"
 )
 
@@ -22,11 +24,13 @@ type RepositoryArgs struct {
 	Token *string `pulumi:"token,optional" provider:"secret"`
 
 	// Namespace is the Hugging Face user or organization that owns this repository.
-	// Defaults to the user associated with the API token when not set.
-	Namespace *string `pulumi:"namespace,optional"`
+	// Defaults to the user associated with the API token when not set. Changing
+	// it replaces the repository.
+	Namespace *string `pulumi:"namespace,optional" provider:"replaceOnChanges"`
 
-	// RepoType is the repository type: "model" (default) or "dataset".
-	RepoType *string `pulumi:"repoType,optional"`
+	// RepoType is the repository type: "model" (default) or "dataset". Changing
+	// it replaces the repository.
+	RepoType *string `pulumi:"repoType,optional" provider:"replaceOnChanges"`
 
 	// Private controls whether the repository is private. Defaults to false.
 	Private *bool `pulumi:"private,optional"`
@@ -45,12 +49,14 @@ type RepositoryState struct {
 
 func (r *Repository) Annotate(a infer.Annotator) {
 	a.Describe(&r, "A Hugging Face Hub repository (model or dataset). Manages the repository "+
-		"container and visibility — not the files within it.")
+		"container and visibility — not the files within it. Import with the ID 'namespace/name' "+
+		"for a model or 'datasets/namespace/name' for a dataset.")
 }
 
 func (a *RepositoryArgs) Annotate(ann infer.Annotator) {
-	ann.Describe(&a.RepoType, "The repository type: 'model' (default) or 'dataset'.")
+	ann.Describe(&a.RepoType, "The repository type: 'model' (default) or 'dataset'. Changing it replaces the repository.")
 	ann.Describe(&a.Private, "Whether the repository is private. Defaults to false (public).")
+	ann.Describe(&a.Namespace, "The owning user or organization. Defaults to the token's user. Changing it replaces the repository.")
 }
 
 func (s *RepositoryState) Annotate(ann infer.Annotator) {
@@ -59,13 +65,80 @@ func (s *RepositoryState) Annotate(ann infer.Annotator) {
 }
 
 // Ensure Repository implements all CRUD interfaces.
-var _ infer.CustomResource[RepositoryArgs, RepositoryState] = (*Repository)(nil)
+var (
+	_ infer.CustomResource[RepositoryArgs, RepositoryState] = (*Repository)(nil)
+	_ infer.CustomCheck[RepositoryArgs]                     = (*Repository)(nil)
+	_ infer.CustomDiff[RepositoryArgs, RepositoryState]     = (*Repository)(nil)
+	_ infer.CustomRead[RepositoryArgs, RepositoryState]     = (*Repository)(nil)
+	_ infer.CustomUpdate[RepositoryArgs, RepositoryState]   = (*Repository)(nil)
+	_ infer.CustomDelete[RepositoryState]                   = (*Repository)(nil)
+)
 
 func resolveRepoType(t *string) string {
 	if t == nil || *t == "" {
 		return "model"
 	}
 	return *t
+}
+
+// repoResourceID builds the Pulumi resource ID. Models keep the plain
+// "namespace/name" form; datasets carry the Hub's "datasets/" path prefix so
+// the type can be recovered from the ID alone (needed for import).
+func repoResourceID(repoType, id string) string {
+	switch repoType {
+	case "dataset":
+		return "datasets/" + id
+	case "space":
+		return "spaces/" + id
+	default:
+		return id
+	}
+}
+
+// parseRepoResourceID splits a Repository resource ID into its repo type,
+// namespace and name. An ID without a type prefix is a model, unless hint
+// (the type recorded in state by an earlier provider version, which gave
+// datasets a plain "namespace/name" ID) says dataset.
+func parseRepoResourceID(id string, hint *string) (repoType, namespace, name string, err error) {
+	repoType = "model"
+	if hint != nil && *hint == "dataset" {
+		repoType = "dataset"
+	}
+	rest := id
+	for prefix, t := range map[string]string{"datasets/": "dataset", "models/": "model", "spaces/": "space"} {
+		if strings.HasPrefix(id, prefix) {
+			repoType, rest = t, strings.TrimPrefix(id, prefix)
+			break
+		}
+	}
+	namespace, name, err = splitID(rest)
+	return repoType, namespace, name, err
+}
+
+func (r *Repository) Check(
+	ctx context.Context,
+	req infer.CheckRequest,
+) (infer.CheckResponse[RepositoryArgs], error) {
+	args, failures, err := infer.DefaultCheck[RepositoryArgs](ctx, req.NewInputs)
+	if err != nil || len(failures) > 0 {
+		return infer.CheckResponse[RepositoryArgs]{Inputs: args, Failures: failures}, err
+	}
+	if args.RepoType != nil {
+		switch *args.RepoType {
+		case "", "model", "dataset":
+		case "space":
+			failures = append(failures, p.CheckFailure{
+				Property: "repoType",
+				Reason:   "use the Space resource to manage Spaces; repoType must be 'model' or 'dataset'",
+			})
+		default:
+			failures = append(failures, p.CheckFailure{
+				Property: "repoType",
+				Reason:   fmt.Sprintf("invalid repoType %q; must be 'model' or 'dataset'", *args.RepoType),
+			})
+		}
+	}
+	return infer.CheckResponse[RepositoryArgs]{Inputs: args, Failures: failures}, nil
 }
 
 func (r *Repository) Create(
@@ -78,33 +151,22 @@ func (r *Repository) Create(
 		return infer.CreateResponse[RepositoryState]{ID: req.Name, Output: state}, nil
 	}
 
-	cfg := infer.GetConfig[ProviderConfig](ctx)
-	token := resolveToken(args.Token, cfg.Token)
-	if token == "" {
-		return infer.CreateResponse[RepositoryState]{}, fmt.Errorf("huggingface: API token is required")
+	client, token, err := clientFor(ctx, args.Token)
+	if err != nil {
+		return infer.CreateResponse[RepositoryState]{}, err
 	}
-	client := newHFClient(token)
-
 	namespace, err := resolveNamespace(args.Namespace, token, client)
 	if err != nil {
 		return infer.CreateResponse[RepositoryState]{}, fmt.Errorf("resolve namespace: %w", err)
 	}
 
 	repoType := resolveRepoType(args.RepoType)
-	isPrivate := false
-	if args.Private != nil {
-		isPrivate = *args.Private
-	}
-
 	createReq := CreateRepoRequest{
-		Name:    req.Name,
-		Type:    repoType,
-		Private: &isPrivate,
+		Name:         req.Name,
+		Type:         repoType,
+		Private:      ptr(orDefault(args.Private, false)),
+		Organization: &namespace,
 	}
-	if namespace != "" {
-		createReq.Organization = &namespace
-	}
-
 	repo, err := client.CreateRepo(createReq)
 	if err != nil {
 		return infer.CreateResponse[RepositoryState]{}, fmt.Errorf("create repository %q: %w", req.Name, err)
@@ -114,60 +176,108 @@ func (r *Repository) Create(
 	if id == "" {
 		id = fmt.Sprintf("%s/%s", namespace, req.Name)
 	}
-	ns := namespace
-	state.Namespace = &ns
+	state.Namespace = ptr(namespace)
 	state.RepoID = id
-	rt := repoType
-	state.RepoType = &rt
+	state.RepoType = ptr(repoType)
 	state.URL = repoURL(repoType, id)
-	return infer.CreateResponse[RepositoryState]{ID: id, Output: state}, nil
+	return infer.CreateResponse[RepositoryState]{ID: repoResourceID(repoType, id), Output: state}, nil
 }
 
 func (r *Repository) Read(
 	ctx context.Context,
 	req infer.ReadRequest[RepositoryArgs, RepositoryState],
 ) (infer.ReadResponse[RepositoryArgs, RepositoryState], error) {
-	args := req.Inputs
-	state := req.State
-	cfg := infer.GetConfig[ProviderConfig](ctx)
-	token := resolveToken(args.Token, cfg.Token)
-	if token == "" {
-		return infer.ReadResponse[RepositoryArgs, RepositoryState]{ID: req.ID, Inputs: args, State: state}, nil
+	type resp = infer.ReadResponse[RepositoryArgs, RepositoryState]
+	prior := req.Inputs
+	if prior.Token == nil {
+		prior.Token = req.State.Token
 	}
-	client := newHFClient(token)
-
-	namespace, name, err := splitID(req.ID)
+	client, _, err := clientFor(ctx, prior.Token)
 	if err != nil {
-		return infer.ReadResponse[RepositoryArgs, RepositoryState]{}, err
+		return resp{}, err
 	}
-	repoType := resolveRepoType(args.RepoType)
-	_ = namespace
+	repoType, namespace, name, err := parseRepoResourceID(req.ID, firstNonNil(req.State.RepoType, prior.RepoType))
+	if err != nil {
+		return resp{}, err
+	}
+	if repoType == "space" {
+		return resp{}, fmt.Errorf("read repository %q: spaces are managed by the Space resource", req.ID)
+	}
 
 	repo, err := client.GetRepo(repoType, namespace, name)
 	if err != nil {
-		return infer.ReadResponse[RepositoryArgs, RepositoryState]{}, fmt.Errorf("read repository %q: %w", req.ID, err)
+		return resp{}, fmt.Errorf("read repository %q: %w", req.ID, err)
 	}
 	if repo == nil {
-		return infer.ReadResponse[RepositoryArgs, RepositoryState]{}, nil
+		// Deleted outside Pulumi: an empty ID drops the resource from state.
+		return resp{}, nil
 	}
 
-	private := repo.Private
-	state.Private = &private
-	state.RepoID = req.ID
-	state.URL = repoURL(repoType, req.ID)
-	return infer.ReadResponse[RepositoryArgs, RepositoryState]{ID: req.ID, Inputs: args, State: state}, nil
+	// An import has no prior inputs at all.
+	imported := prior.Namespace == nil && prior.RepoType == nil && prior.Private == nil && req.State.RepoID == ""
+	inputs := RepositoryArgs{
+		Token:     prior.Token,
+		Namespace: prior.Namespace,
+		RepoType:  prior.RepoType,
+	}
+	if imported {
+		inputs.Namespace = ptr(namespace)
+		inputs.RepoType = ptr(repoType)
+	}
+	inputs.Private = refreshOpt(prior.Private, repo.Private, true, imported, ptr(false))
+
+	stateArgs := inputs
+	stateArgs.Namespace = ptr(namespace)
+	stateArgs.RepoType = ptr(repoType)
+	stateArgs.Private = ptr(repo.Private)
+	repoID := namespace + "/" + name
+	return resp{
+		ID:     req.ID,
+		Inputs: inputs,
+		State:  RepositoryState{RepositoryArgs: stateArgs, RepoID: repoID, URL: repoURL(repoType, repoID)},
+	}, nil
+}
+
+func (r *Repository) Diff(
+	_ context.Context,
+	req infer.DiffRequest[RepositoryArgs, RepositoryState],
+) (infer.DiffResponse, error) {
+	o, n := req.State.RepositoryArgs, req.Inputs
+	d := newDiffSet()
+
+	idType, idNS, _, _ := parseRepoResourceID(req.ID, req.State.RepoType)
+	d.replace("namespace", namespaceChanged(idNS, n.Namespace))
+	d.replace("repoType", idType != resolveRepoType(n.RepoType))
+
+	d.update("token", orDefault(o.Token, "") != orDefault(n.Token, ""))
+	d.update("private", orDefault(o.Private, false) != orDefault(n.Private, false))
+	return d.response(), nil
 }
 
 func (r *Repository) Update(
 	ctx context.Context,
 	req infer.UpdateRequest[RepositoryArgs, RepositoryState],
 ) (infer.UpdateResponse[RepositoryState], error) {
-	state := RepositoryState{RepositoryArgs: req.Inputs}
-	state.RepoID = req.State.RepoID
-	state.URL = req.State.URL
-	// Repository visibility and metadata changes are not supported via the Hub API
-	// in an atomic update call. Return the existing state; the primary mutable
-	// property (files) is managed outside Pulumi.
+	state := RepositoryState{RepositoryArgs: req.Inputs, RepoID: req.State.RepoID, URL: req.State.URL}
+	repoType, namespace, name, err := parseRepoResourceID(req.ID, req.State.RepoType)
+	if err != nil {
+		return infer.UpdateResponse[RepositoryState]{}, err
+	}
+	state.Namespace = ptr(namespace)
+	state.RepoType = ptr(repoType)
+	if req.DryRun {
+		return infer.UpdateResponse[RepositoryState]{Output: state}, nil
+	}
+
+	client, _, err := clientFor(ctx, req.Inputs.Token)
+	if err != nil {
+		return infer.UpdateResponse[RepositoryState]{}, err
+	}
+	if orDefault(req.State.Private, false) != orDefault(req.Inputs.Private, false) {
+		if err := client.UpdateRepoVisibility(repoType, namespace, name, orDefault(req.Inputs.Private, false)); err != nil {
+			return infer.UpdateResponse[RepositoryState]{}, fmt.Errorf("update repository %q: %w", req.ID, err)
+		}
+	}
 	return infer.UpdateResponse[RepositoryState]{Output: state}, nil
 }
 
@@ -175,19 +285,14 @@ func (r *Repository) Delete(
 	ctx context.Context,
 	req infer.DeleteRequest[RepositoryState],
 ) (infer.DeleteResponse, error) {
-	state := req.State
-	cfg := infer.GetConfig[ProviderConfig](ctx)
-	token := resolveToken(state.Token, cfg.Token)
-	if token == "" {
-		return infer.DeleteResponse{}, fmt.Errorf("huggingface: API token is required")
-	}
-	client := newHFClient(token)
-
-	namespace, name, err := splitID(req.ID)
+	client, _, err := clientFor(ctx, req.State.Token)
 	if err != nil {
 		return infer.DeleteResponse{}, err
 	}
-	repoType := resolveRepoType(state.RepoType)
+	repoType, namespace, name, err := parseRepoResourceID(req.ID, req.State.RepoType)
+	if err != nil {
+		return infer.DeleteResponse{}, err
+	}
 	if err := client.DeleteRepo(repoType, namespace, name); err != nil {
 		return infer.DeleteResponse{}, fmt.Errorf("delete repository %q: %w", req.ID, err)
 	}
@@ -198,7 +303,18 @@ func repoURL(repoType, id string) string {
 	switch repoType {
 	case "dataset":
 		return fmt.Sprintf("https://huggingface.co/datasets/%s", id)
+	case "space":
+		return fmt.Sprintf("https://huggingface.co/spaces/%s", id)
 	default:
 		return fmt.Sprintf("https://huggingface.co/%s", id)
 	}
+}
+
+func firstNonNil[T any](ps ...*T) *T {
+	for _, p := range ps {
+		if p != nil {
+			return p
+		}
+	}
+	return nil
 }

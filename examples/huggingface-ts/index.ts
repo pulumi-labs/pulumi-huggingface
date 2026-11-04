@@ -19,7 +19,7 @@ const endpoint = new huggingface.InferenceEndpoint("llama-3-8b", {
     minReplica: 0,
     maxReplica: 2,
     scaleToZeroTimeout: 60,
-    endpointType: "protected",
+    endpointType: "authenticated",
 });
 
 // Create a Gradio demo Space that calls the endpoint

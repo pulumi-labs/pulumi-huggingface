@@ -15,7 +15,7 @@ return await Deployment.RunAsync(() =>
     var region          = config.Get("region")          ?? "us-east-1";
     var instanceType    = config.Get("instanceType")    ?? "nvidia-a10g";
     var instanceSize    = config.Get("instanceSize")    ?? "x1";
-    var endpointType    = config.Get("endpointType")    ?? "protected";
+    var endpointType    = config.Get("endpointType")    ?? "authenticated";
 
     // Build optional namespace argument.
     var nsArg = string.IsNullOrEmpty(ns) ? null : ns;

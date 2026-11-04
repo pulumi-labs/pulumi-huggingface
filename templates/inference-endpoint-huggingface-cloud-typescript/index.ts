@@ -10,7 +10,7 @@ const vendor          = config.get("vendor")          || "aws";
 const region          = config.get("region")          || "us-east-1";
 const instanceType    = config.get("instanceType")    || "nvidia-a10g";
 const instanceSize    = config.get("instanceSize")    || "x1";
-const endpointType    = config.get("endpointType")    || "protected";
+const endpointType    = config.get("endpointType")    || "authenticated";
 
 // Deploy a dedicated GPU inference endpoint.
 // minReplica: 0 enables scale-to-zero so idle time costs nothing.

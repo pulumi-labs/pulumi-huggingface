@@ -2,9 +2,11 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"maps"
+	"time"
 
+	p "github.com/pulumi/pulumi-go-provider"
 	"github.com/pulumi/pulumi-go-provider/infer"
 )
 
@@ -14,8 +16,17 @@ import (
 
 // InferenceEndpoint provisions a Hugging Face Inference Endpoint — a dedicated,
 // auto-scalable compute instance that serves a model for production inference traffic.
-// Supports public, protected, and private access types across AWS, Azure, and GCP.
+// Supports public, authenticated, and private access types across AWS, Azure, and GCP.
 type InferenceEndpoint struct{}
+
+// Endpoint wait tuning. Variables so tests can run with short intervals.
+var (
+	endpointPollInterval = 10 * time.Second
+	endpointWaitTimeout  = 30 * time.Minute
+)
+
+// defaultEndpointType is the access type used when endpointType is unset.
+const defaultEndpointType = string(EndpointTypeAuthenticated)
 
 // InferenceEndpointArgs are the user-supplied inputs for an inference endpoint.
 type InferenceEndpointArgs struct {
@@ -24,31 +35,30 @@ type InferenceEndpointArgs struct {
 	Token *string `pulumi:"token,optional" provider:"secret"`
 
 	// Namespace is the Hugging Face user or organization that owns this endpoint.
-	// Defaults to the user associated with the API token when not set.
-	Namespace *string `pulumi:"namespace,optional"`
+	// Defaults to the user associated with the API token when not set. Changing
+	// it replaces the endpoint.
+	Namespace *string `pulumi:"namespace,optional" provider:"replaceOnChanges"`
 
 	// ModelRepository is the ID of the model to serve (e.g. "meta-llama/Llama-3-8B-Instruct").
 	ModelRepository string `pulumi:"modelRepository"`
 
 	// ModelFramework is the serving framework (e.g. "pytorch", "custom").
-	// When using TGI/TEI/vLLM, set to "pytorch" or "custom" and supply CustomImageURL.
 	ModelFramework string `pulumi:"modelFramework"`
 
 	// ModelTask is the inference task type (e.g. "text-generation", "feature-extraction").
 	ModelTask string `pulumi:"modelTask"`
 
 	// ModelRevision pins the model to a specific git commit SHA or branch.
-	// Defaults to the latest main branch revision when not set.
 	ModelRevision *string `pulumi:"modelRevision,optional"`
 
-	// CustomImageURL allows deploying a custom container image (e.g. TGI, TEI, vLLM).
+	// CustomImageURL allows deploying a custom container image.
 	// Example: "ghcr.io/huggingface/text-generation-inference:2.4.0"
 	CustomImageURL *string `pulumi:"customImageUrl,optional"`
 
-	// CustomImageEnvVars sets container environment variables when using a custom image.
+	// CustomImageEnvVars sets container environment variables (model.env).
 	CustomImageEnvVars map[string]string `pulumi:"customImageEnvVars,optional"`
 
-	// CustomImagePort overrides the default container port (8080).
+	// CustomImagePort overrides the default container port.
 	CustomImagePort *int `pulumi:"customImagePort,optional"`
 
 	// CustomImageHealthRoute is the HTTP path for the health check (e.g. "/health").
@@ -77,16 +87,20 @@ type InferenceEndpointArgs struct {
 	MaxReplica *int `pulumi:"maxReplica,optional"`
 
 	// ScaleToZeroTimeout is the idle time in minutes before scaling to zero.
-	// Only applies when MinReplica is 0. Defaults to 60 minutes.
+	// Only applies when MinReplica is 0. The API default is 15 minutes.
 	ScaleToZeroTimeout *int `pulumi:"scaleToZeroTimeout,optional"`
 
-	// EndpointType controls access: "public", "protected" (default), or "private".
-	// Protected endpoints require a Hugging Face account. Private endpoints require
-	// VPC PrivateLink configuration (set AccountID).
+	// EndpointType controls access: "public", "authenticated" (default), or "private".
 	EndpointType *string `pulumi:"endpointType,optional"`
 
-	// AccountID is required for private endpoints using AWS VPC PrivateLink.
-	AccountID *string `pulumi:"accountId,optional"`
+	// AccountID is the AWS account ID for private endpoints using AWS PrivateLink
+	// (sent as privateService.accountId). Changing it replaces the endpoint.
+	AccountID *string `pulumi:"accountId,optional" provider:"replaceOnChanges"`
+
+	// PrivateLinkRegion is the AWS region of the PrivateLink entry point
+	// ("us-east-1" or "eu-west-1"), sent as privateService.region. Defaults to
+	// region when accountId is set. Changing it replaces the endpoint.
+	PrivateLinkRegion *string `pulumi:"privateLinkRegion,optional" provider:"replaceOnChanges"`
 }
 
 // InferenceEndpointState is the persisted state of an inference endpoint.
@@ -102,7 +116,8 @@ type InferenceEndpointState struct {
 
 func (r *InferenceEndpoint) Annotate(a infer.Annotator) {
 	a.Describe(&r, "A Hugging Face Inference Endpoint — a dedicated, auto-scalable compute "+
-		"instance that serves a model for production inference traffic.")
+		"instance that serves a model for production inference traffic. "+
+		"Import with the ID 'namespace/name'.")
 }
 
 func (a *InferenceEndpointArgs) Annotate(ann infer.Annotator) {
@@ -114,70 +129,172 @@ func (a *InferenceEndpointArgs) Annotate(ann infer.Annotator) {
 	ann.Describe(&a.Accelerator, "Hardware accelerator type: 'cpu', 'gpu', or 'inf2' (AWS Inferentia 2).")
 	ann.Describe(&a.InstanceType, "Instance family (e.g. 'nvidia-a10g', 'nvidia-h100', 'intel-icl').")
 	ann.Describe(&a.InstanceSize, "Instance size multiplier: 'x1', 'x2', 'x4', 'x8'.")
+	ann.Describe(&a.EndpointType, "Access type: 'public', 'authenticated' (default), or 'private'. "+
+		"The legacy 'protected' type is no longer supported by the API.")
+	ann.Describe(&a.ScaleToZeroTimeout, "Idle minutes before scaling to zero when minReplica is 0. The API default is 15.")
+	ann.Describe(&a.CustomImageEnvVars, "Environment variables for the container (model.env).")
+	ann.Describe(&a.AccountID, "AWS account ID for AWS PrivateLink on a private endpoint. Changing it replaces the endpoint.")
+	ann.Describe(&a.PrivateLinkRegion, "AWS region of the PrivateLink entry point ('us-east-1' or 'eu-west-1'). Defaults to region.")
 }
 
 func (s *InferenceEndpointState) Annotate(ann infer.Annotator) {
-	ann.Describe(&s.URL, "The HTTPS URL to call for inference. Only set when the endpoint is in 'running' state.")
-	ann.Describe(&s.Status, "The current lifecycle state: 'pending', 'initializing', 'running', 'paused', 'scaledToZero', 'failed'.")
+	ann.Describe(&s.URL, "The HTTPS URL to call for inference. Set once the endpoint is running.")
+	ann.Describe(&s.Status, "The current lifecycle state: 'pending', 'initializing', 'updating', 'running', 'paused', 'scaledToZero', 'failed', 'updateFailed'.")
 }
 
 // Ensure InferenceEndpoint implements the CustomResource interfaces.
-var _ infer.CustomResource[InferenceEndpointArgs, InferenceEndpointState] = (*InferenceEndpoint)(nil)
+var (
+	_ infer.CustomResource[InferenceEndpointArgs, InferenceEndpointState] = (*InferenceEndpoint)(nil)
+	_ infer.CustomCheck[InferenceEndpointArgs]                            = (*InferenceEndpoint)(nil)
+	_ infer.CustomDiff[InferenceEndpointArgs, InferenceEndpointState]     = (*InferenceEndpoint)(nil)
+	_ infer.CustomRead[InferenceEndpointArgs, InferenceEndpointState]     = (*InferenceEndpoint)(nil)
+	_ infer.CustomUpdate[InferenceEndpointArgs, InferenceEndpointState]   = (*InferenceEndpoint)(nil)
+	_ infer.CustomDelete[InferenceEndpointState]                          = (*InferenceEndpoint)(nil)
+)
+
+func (r *InferenceEndpoint) Check(
+	ctx context.Context,
+	req infer.CheckRequest,
+) (infer.CheckResponse[InferenceEndpointArgs], error) {
+	args, failures, err := infer.DefaultCheck[InferenceEndpointArgs](ctx, req.NewInputs)
+	if err != nil || len(failures) > 0 {
+		return infer.CheckResponse[InferenceEndpointArgs]{Inputs: args, Failures: failures}, err
+	}
+	if args.EndpointType != nil {
+		switch EndpointType(*args.EndpointType) {
+		case EndpointTypePublic, EndpointTypeAuthenticated, EndpointTypePrivate:
+		case "protected":
+			failures = append(failures, p.CheckFailure{
+				Property: "endpointType",
+				Reason:   "'protected' is no longer supported by the Inference Endpoints API; use 'authenticated'",
+			})
+		default:
+			failures = append(failures, p.CheckFailure{
+				Property: "endpointType",
+				Reason:   fmt.Sprintf("invalid endpoint type %q; must be 'public', 'authenticated' or 'private'", *args.EndpointType),
+			})
+		}
+	}
+	return infer.CheckResponse[InferenceEndpointArgs]{Inputs: args, Failures: failures}, nil
+}
+
+// endpointImage builds the model.image union. The API requires it: a custom
+// container when customImageUrl is set, the stock Hugging Face image otherwise.
+func endpointImage(args InferenceEndpointArgs) *EndpointImage {
+	if args.CustomImageURL != nil && *args.CustomImageURL != "" {
+		return &EndpointImage{Custom: &EndpointCustomImage{
+			URL:         *args.CustomImageURL,
+			Port:        args.CustomImagePort,
+			HealthRoute: args.CustomImageHealthRoute,
+		}}
+	}
+	return &EndpointImage{Huggingface: &struct{}{}}
+}
+
+func endpointCompute(args InferenceEndpointArgs) EndpointCompute {
+	return EndpointCompute{
+		Accelerator:  args.Accelerator,
+		InstanceType: args.InstanceType,
+		InstanceSize: args.InstanceSize,
+		Scaling: EndpointScaling{
+			MinReplica:         orDefault(args.MinReplica, 1),
+			MaxReplica:         orDefault(args.MaxReplica, 1),
+			ScaleToZeroTimeout: args.ScaleToZeroTimeout,
+		},
+	}
+}
 
 func buildEndpointCreateRequest(name string, args InferenceEndpointArgs) CreateEndpointRequest {
-	minR := 1
-	if args.MinReplica != nil {
-		minR = *args.MinReplica
+	model := EndpointModel{
+		Repository: args.ModelRepository,
+		Framework:  args.ModelFramework,
+		Task:       args.ModelTask,
+		Revision:   args.ModelRevision,
+		Image:      endpointImage(args),
 	}
-	maxR := 1
-	if args.MaxReplica != nil {
-		maxR = *args.MaxReplica
+	if len(args.CustomImageEnvVars) > 0 {
+		env := maps.Clone(args.CustomImageEnvVars)
+		model.Env = &env
 	}
-	endType := EndpointTypeProtected
-	if args.EndpointType != nil {
-		endType = EndpointType(*args.EndpointType)
+	req := CreateEndpointRequest{
+		Name:     name,
+		Type:     EndpointType(orDefault(args.EndpointType, defaultEndpointType)),
+		Compute:  endpointCompute(args),
+		Model:    model,
+		Provider: EndpointProvider{Vendor: args.Vendor, Region: args.Region},
 	}
-
-	scaling := EndpointScaling{
-		MinReplica:         minR,
-		MaxReplica:         maxR,
-		ScaleToZeroTimeout: args.ScaleToZeroTimeout,
-	}
-
-	var img *EndpointImage
-	if args.CustomImageURL != nil {
-		custom := &EndpointCustomImage{
-			URL:     *args.CustomImageURL,
-			EnvVars: args.CustomImageEnvVars,
-			Port:    args.CustomImagePort,
+	if args.AccountID != nil && *args.AccountID != "" {
+		req.PrivateService = &PrivateService{
+			AccountID: *args.AccountID,
+			Region:    orDefault(args.PrivateLinkRegion, args.Region),
 		}
-		if args.CustomImageHealthRoute != nil {
-			custom.Health = &ImageHealth{Route: *args.CustomImageHealthRoute}
-		}
-		img = &EndpointImage{Custom: custom}
 	}
+	return req
+}
 
-	return CreateEndpointRequest{
-		Name:      name,
-		Type:      endType,
-		AccountID: args.AccountID,
-		Compute: EndpointCompute{
-			Accelerator:  args.Accelerator,
-			InstanceType: args.InstanceType,
-			InstanceSize: args.InstanceSize,
-			Scaling:      scaling,
-		},
-		Model: EndpointModel{
-			Repository: args.ModelRepository,
-			Framework:  args.ModelFramework,
-			Task:       args.ModelTask,
-			Revision:   args.ModelRevision,
-			Image:      img,
-		},
-		Provider: EndpointProvider{
-			Vendor: args.Vendor,
-			Region: args.Region,
-		},
+// buildEndpointUpdateRequest sends every property the API can update. The
+// image is only sent when it changed, so an image configured outside Pulumi
+// (for example a managed engine variant) is not clobbered by unrelated edits.
+func buildEndpointUpdateRequest(old, args InferenceEndpointArgs) UpdateEndpointRequest {
+	endType := EndpointType(orDefault(args.EndpointType, defaultEndpointType))
+	compute := endpointCompute(args)
+	model := EndpointModel{
+		Repository: args.ModelRepository,
+		Framework:  args.ModelFramework,
+		Task:       args.ModelTask,
+		Revision:   args.ModelRevision,
+	}
+	if len(args.CustomImageEnvVars) > 0 || len(old.CustomImageEnvVars) > 0 {
+		env := maps.Clone(args.CustomImageEnvVars)
+		if env == nil {
+			env = map[string]string{}
+		}
+		model.Env = &env
+	}
+	if imageChanged(old, args) {
+		model.Image = endpointImage(args)
+	}
+	return UpdateEndpointRequest{
+		Type:     &endType,
+		Compute:  &compute,
+		Model:    &model,
+		Provider: &EndpointProvider{Vendor: args.Vendor, Region: args.Region},
+	}
+}
+
+func imageChanged(old, n InferenceEndpointArgs) bool {
+	return orDefault(old.CustomImageURL, "") != orDefault(n.CustomImageURL, "") ||
+		ptrChanged(old.CustomImagePort, n.CustomImagePort) ||
+		ptrChanged(old.CustomImageHealthRoute, n.CustomImageHealthRoute)
+}
+
+// waitForEndpoint polls until the endpoint leaves its transitional states, so
+// outputs such as url are populated when the resource operation returns.
+func waitForEndpoint(ctx context.Context, c *hfClient, ns, name string, d *EndpointDetails) (*EndpointDetails, error) {
+	deadline := time.Now().Add(endpointWaitTimeout)
+	for {
+		switch d.Status.State {
+		case EndpointStateRunning, EndpointStateScaledToZero, EndpointStatePaused:
+			return d, nil
+		case EndpointStateFailed, EndpointStateUpdateFailed:
+			return d, fmt.Errorf("inference endpoint %s/%s is %s: %s", ns, name, d.Status.State, d.Status.Message)
+		}
+		if time.Now().After(deadline) {
+			return d, fmt.Errorf("timed out waiting for inference endpoint %s/%s (state %q)", ns, name, d.Status.State)
+		}
+		select {
+		case <-ctx.Done():
+			return d, ctx.Err()
+		case <-time.After(endpointPollInterval):
+		}
+		nd, err := c.GetEndpoint(ns, name)
+		if err != nil {
+			return d, err
+		}
+		if nd == nil {
+			return d, fmt.Errorf("inference endpoint %s/%s disappeared while waiting", ns, name)
+		}
+		d = nd
 	}
 }
 
@@ -191,68 +308,187 @@ func (r *InferenceEndpoint) Create(
 		return infer.CreateResponse[InferenceEndpointState]{ID: req.Name, Output: state}, nil
 	}
 
-	cfg := infer.GetConfig[ProviderConfig](ctx)
-	token := resolveToken(args.Token, cfg.Token)
-	if token == "" {
-		return infer.CreateResponse[InferenceEndpointState]{}, fmt.Errorf("huggingface: API token is required (set token input or HUGGINGFACE_TOKEN env var)")
+	client, token, err := clientFor(ctx, args.Token)
+	if err != nil {
+		return infer.CreateResponse[InferenceEndpointState]{}, err
 	}
-	client := newHFClient(token)
-
 	namespace, err := resolveNamespace(args.Namespace, token, client)
 	if err != nil {
 		return infer.CreateResponse[InferenceEndpointState]{}, fmt.Errorf("resolve namespace: %w", err)
 	}
 
-	endpointReq := buildEndpointCreateRequest(req.Name, args)
-	endpoint, err := client.CreateEndpoint(namespace, endpointReq)
+	endpoint, err := client.CreateEndpoint(namespace, buildEndpointCreateRequest(req.Name, args))
 	if err != nil {
 		return infer.CreateResponse[InferenceEndpointState]{}, fmt.Errorf("create inference endpoint %q: %w", req.Name, err)
 	}
 
 	id := fmt.Sprintf("%s/%s", namespace, req.Name)
+	state.Namespace = ptr(namespace)
+	endpoint, waitErr := waitForEndpoint(ctx, client, namespace, req.Name, endpoint)
 	state.URL = endpoint.Status.URL
 	state.Status = string(endpoint.Status.State)
-	ns := namespace
-	state.Namespace = &ns
+	if waitErr != nil {
+		// The endpoint exists; record it so the next refresh or update can fix it.
+		return infer.CreateResponse[InferenceEndpointState]{ID: id, Output: state},
+			infer.ResourceInitFailedError{Reasons: []string{waitErr.Error()}}
+	}
 	return infer.CreateResponse[InferenceEndpointState]{ID: id, Output: state}, nil
+}
+
+// refreshEndpoint maps an API response onto inputs and state. State is the
+// API's truth. Inputs keep the user's intent: an optional input that is unset
+// stays unset unless the API drifted from its default, while an import (no
+// prior inputs) adopts everything the API reports.
+func refreshEndpoint(ns string, prior InferenceEndpointArgs, d *EndpointDetails) (inputs, state InferenceEndpointArgs) {
+	imported := prior.ModelRepository == ""
+
+	apiType := string(d.Type)
+	var custom *EndpointCustomImage
+	if d.Model.Image != nil {
+		custom = d.Model.Image.Custom
+	}
+	var apiEnv map[string]string
+	if d.Model.Env != nil {
+		apiEnv = *d.Model.Env
+	}
+	defType := defaultEndpointType
+	one := 1
+
+	inputs = InferenceEndpointArgs{
+		Token:           prior.Token,
+		Namespace:       prior.Namespace,
+		ModelRepository: d.Model.Repository,
+		ModelFramework:  d.Model.Framework,
+		ModelTask:       d.Model.Task,
+		Vendor:          d.Provider.Vendor,
+		Region:          d.Provider.Region,
+		Accelerator:     d.Compute.Accelerator,
+		InstanceType:    d.Compute.InstanceType,
+		InstanceSize:    d.Compute.InstanceSize,
+	}
+	if imported {
+		inputs.Namespace = ptr(ns)
+	}
+	inputs.ModelRevision = refreshOpt(prior.ModelRevision, orDefault(d.Model.Revision, ""), d.Model.Revision != nil, imported, nil)
+	inputs.EndpointType = refreshOpt(prior.EndpointType, apiType, apiType != "", imported, &defType)
+	inputs.MinReplica = refreshOpt(prior.MinReplica, d.Compute.Scaling.MinReplica, true, imported, &one)
+	inputs.MaxReplica = refreshOpt(prior.MaxReplica, d.Compute.Scaling.MaxReplica, true, imported, &one)
+	inputs.ScaleToZeroTimeout = refreshOpt(prior.ScaleToZeroTimeout,
+		orDefault(d.Compute.Scaling.ScaleToZeroTimeout, 0), d.Compute.Scaling.ScaleToZeroTimeout != nil, imported, nil)
+
+	if custom != nil {
+		inputs.CustomImageURL = refreshOpt(prior.CustomImageURL, custom.URL, custom.URL != "", imported, nil)
+		inputs.CustomImagePort = refreshOpt(prior.CustomImagePort, orDefault(custom.Port, 0), custom.Port != nil, imported, nil)
+		inputs.CustomImageHealthRoute = refreshOpt(prior.CustomImageHealthRoute,
+			orDefault(custom.HealthRoute, ""), custom.HealthRoute != nil, imported, nil)
+	} else if prior.CustomImageURL != nil && *prior.CustomImageURL != "" {
+		// The API no longer runs the custom image: surface the drift by
+		// dropping the input so the next update restores it.
+		inputs.CustomImageURL = nil
+	} else {
+		inputs.CustomImagePort = prior.CustomImagePort
+		inputs.CustomImageHealthRoute = prior.CustomImageHealthRoute
+	}
+
+	// Environment: on refresh only the keys the user manages are compared, so
+	// variables injected by the platform do not cause a permanent diff.
+	if imported {
+		if len(apiEnv) > 0 {
+			inputs.CustomImageEnvVars = maps.Clone(apiEnv)
+		}
+	} else if len(prior.CustomImageEnvVars) > 0 {
+		env := map[string]string{}
+		for k := range prior.CustomImageEnvVars {
+			if v, ok := apiEnv[k]; ok {
+				env[k] = v
+			}
+		}
+		inputs.CustomImageEnvVars = env
+	}
+
+	if ps := d.PrivateService; ps != nil && ps.AccountID != "" {
+		inputs.AccountID = refreshOpt(prior.AccountID, ps.AccountID, true, imported, nil)
+		inputs.PrivateLinkRegion = refreshOpt(prior.PrivateLinkRegion, ps.Region, ps.Region != "", imported, nil)
+	} else {
+		inputs.AccountID = prior.AccountID
+		inputs.PrivateLinkRegion = prior.PrivateLinkRegion
+	}
+
+	state = inputs
+	state.Namespace = ptr(ns)
+	return inputs, state
 }
 
 func (r *InferenceEndpoint) Read(
 	ctx context.Context,
 	req infer.ReadRequest[InferenceEndpointArgs, InferenceEndpointState],
 ) (infer.ReadResponse[InferenceEndpointArgs, InferenceEndpointState], error) {
-	args := req.Inputs
-	state := req.State
-	cfg := infer.GetConfig[ProviderConfig](ctx)
-	token := resolveToken(args.Token, cfg.Token)
-	if token == "" {
-		return infer.ReadResponse[InferenceEndpointArgs, InferenceEndpointState]{
-			ID: req.ID, Inputs: args, State: state,
-		}, nil
+	type resp = infer.ReadResponse[InferenceEndpointArgs, InferenceEndpointState]
+	prior := req.Inputs
+	if prior.Token == nil {
+		prior.Token = req.State.Token
 	}
-	client := newHFClient(token)
-
+	client, _, err := clientFor(ctx, prior.Token)
+	if err != nil {
+		return resp{}, err
+	}
 	namespace, name, err := splitID(req.ID)
 	if err != nil {
-		return infer.ReadResponse[InferenceEndpointArgs, InferenceEndpointState]{}, err
+		return resp{}, err
 	}
-
 	endpoint, err := client.GetEndpoint(namespace, name)
 	if err != nil {
-		return infer.ReadResponse[InferenceEndpointArgs, InferenceEndpointState]{}, fmt.Errorf("read inference endpoint %q: %w", req.ID, err)
+		return resp{}, fmt.Errorf("read inference endpoint %q: %w", req.ID, err)
 	}
 	if endpoint == nil {
-		// Resource has been deleted externally — signal removal by returning empty ID.
-		return infer.ReadResponse[InferenceEndpointArgs, InferenceEndpointState]{}, nil
+		// Deleted outside Pulumi: an empty ID drops the resource from state.
+		return resp{}, nil
 	}
 
-	state.URL = endpoint.Status.URL
-	state.Status = string(endpoint.Status.State)
-	ns := endpoint.Namespace
-	state.Namespace = &ns
-	return infer.ReadResponse[InferenceEndpointArgs, InferenceEndpointState]{
-		ID: req.ID, Inputs: args, State: state,
+	inputs, stateArgs := refreshEndpoint(namespace, prior, endpoint)
+	return resp{
+		ID:     req.ID,
+		Inputs: inputs,
+		State: InferenceEndpointState{
+			InferenceEndpointArgs: stateArgs,
+			URL:                   endpoint.Status.URL,
+			Status:                string(endpoint.Status.State),
+		},
 	}, nil
+}
+
+func (r *InferenceEndpoint) Diff(
+	_ context.Context,
+	req infer.DiffRequest[InferenceEndpointArgs, InferenceEndpointState],
+) (infer.DiffResponse, error) {
+	o, n := req.State.InferenceEndpointArgs, req.Inputs
+	d := newDiffSet()
+
+	idNS, _, _ := splitID(req.ID)
+	d.replace("namespace", namespaceChanged(idNS, n.Namespace))
+	d.replace("accountId", orDefault(o.AccountID, "") != orDefault(n.AccountID, ""))
+	d.replace("privateLinkRegion", ptrChanged(o.PrivateLinkRegion, n.PrivateLinkRegion))
+
+	d.update("token", orDefault(o.Token, "") != orDefault(n.Token, ""))
+	d.update("modelRepository", o.ModelRepository != n.ModelRepository)
+	d.update("modelFramework", o.ModelFramework != n.ModelFramework)
+	d.update("modelTask", o.ModelTask != n.ModelTask)
+	d.update("modelRevision", ptrChanged(o.ModelRevision, n.ModelRevision))
+	d.update("customImageUrl", orDefault(o.CustomImageURL, "") != orDefault(n.CustomImageURL, ""))
+	d.update("customImageEnvVars", !maps.Equal(o.CustomImageEnvVars, n.CustomImageEnvVars))
+	d.update("customImagePort", ptrChanged(o.CustomImagePort, n.CustomImagePort))
+	d.update("customImageHealthRoute", ptrChanged(o.CustomImageHealthRoute, n.CustomImageHealthRoute))
+	d.update("vendor", o.Vendor != n.Vendor)
+	d.update("region", o.Region != n.Region)
+	d.update("accelerator", o.Accelerator != n.Accelerator)
+	d.update("instanceType", o.InstanceType != n.InstanceType)
+	d.update("instanceSize", o.InstanceSize != n.InstanceSize)
+	d.update("minReplica", orDefault(o.MinReplica, 1) != orDefault(n.MinReplica, 1))
+	d.update("maxReplica", orDefault(o.MaxReplica, 1) != orDefault(n.MaxReplica, 1))
+	d.update("scaleToZeroTimeout", ptrChanged(o.ScaleToZeroTimeout, n.ScaleToZeroTimeout))
+	d.update("endpointType",
+		orDefault(o.EndpointType, defaultEndpointType) != orDefault(n.EndpointType, defaultEndpointType))
+	return d.response(), nil
 }
 
 func (r *InferenceEndpoint) Update(
@@ -261,57 +497,33 @@ func (r *InferenceEndpoint) Update(
 ) (infer.UpdateResponse[InferenceEndpointState], error) {
 	args := req.Inputs
 	state := InferenceEndpointState{InferenceEndpointArgs: args}
+	ns, name, err := splitID(req.ID)
+	if err != nil {
+		return infer.UpdateResponse[InferenceEndpointState]{}, err
+	}
+	state.Namespace = ptr(ns)
 	if req.DryRun {
 		state.URL = req.State.URL
 		state.Status = req.State.Status
 		return infer.UpdateResponse[InferenceEndpointState]{Output: state}, nil
 	}
 
-	cfg := infer.GetConfig[ProviderConfig](ctx)
-	token := resolveToken(args.Token, cfg.Token)
-	if token == "" {
-		return infer.UpdateResponse[InferenceEndpointState]{}, fmt.Errorf("huggingface: API token is required")
-	}
-	client := newHFClient(token)
-
-	namespace, name, err := splitID(req.ID)
+	client, _, err := clientFor(ctx, args.Token)
 	if err != nil {
 		return infer.UpdateResponse[InferenceEndpointState]{}, err
 	}
 
-	endType := EndpointTypeProtected
-	if args.EndpointType != nil {
-		endType = EndpointType(*args.EndpointType)
-	}
-	minR := 1
-	if args.MinReplica != nil {
-		minR = *args.MinReplica
-	}
-	maxR := 1
-	if args.MaxReplica != nil {
-		maxR = *args.MaxReplica
-	}
-	compute := EndpointCompute{
-		Accelerator:  args.Accelerator,
-		InstanceType: args.InstanceType,
-		InstanceSize: args.InstanceSize,
-		Scaling: EndpointScaling{
-			MinReplica:         minR,
-			MaxReplica:         maxR,
-			ScaleToZeroTimeout: args.ScaleToZeroTimeout,
-		},
-	}
-	updateReq := UpdateEndpointRequest{
-		Type:    &endType,
-		Compute: &compute,
-	}
-
-	endpoint, err := client.UpdateEndpoint(namespace, name, updateReq)
+	endpoint, err := client.UpdateEndpoint(ns, name, buildEndpointUpdateRequest(req.State.InferenceEndpointArgs, args))
 	if err != nil {
 		return infer.UpdateResponse[InferenceEndpointState]{}, fmt.Errorf("update inference endpoint %q: %w", req.ID, err)
 	}
+	endpoint, waitErr := waitForEndpoint(ctx, client, ns, name, endpoint)
 	state.URL = endpoint.Status.URL
 	state.Status = string(endpoint.Status.State)
+	if waitErr != nil {
+		return infer.UpdateResponse[InferenceEndpointState]{Output: state},
+			infer.ResourceInitFailedError{Reasons: []string{waitErr.Error()}}
+	}
 	return infer.UpdateResponse[InferenceEndpointState]{Output: state}, nil
 }
 
@@ -319,14 +531,10 @@ func (r *InferenceEndpoint) Delete(
 	ctx context.Context,
 	req infer.DeleteRequest[InferenceEndpointState],
 ) (infer.DeleteResponse, error) {
-	state := req.State
-	cfg := infer.GetConfig[ProviderConfig](ctx)
-	token := resolveToken(state.Token, cfg.Token)
-	if token == "" {
-		return infer.DeleteResponse{}, fmt.Errorf("huggingface: API token is required")
+	client, _, err := clientFor(ctx, req.State.Token)
+	if err != nil {
+		return infer.DeleteResponse{}, err
 	}
-	client := newHFClient(token)
-
 	namespace, name, err := splitID(req.ID)
 	if err != nil {
 		return infer.DeleteResponse{}, err
@@ -335,55 +543,4 @@ func (r *InferenceEndpoint) Delete(
 		return infer.DeleteResponse{}, fmt.Errorf("delete inference endpoint %q: %w", req.ID, err)
 	}
 	return infer.DeleteResponse{}, nil
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-func resolveToken(resourceToken *string, cfgToken *string) string {
-	if resourceToken != nil && *resourceToken != "" {
-		return *resourceToken
-	}
-	if cfgToken != nil && *cfgToken != "" {
-		return *cfgToken
-	}
-	return ""
-}
-
-func resolveNamespace(ns *string, token string, client *hfClient) (string, error) {
-	if ns != nil && *ns != "" {
-		return *ns, nil
-	}
-	// Whoami call to get the authenticated user's namespace.
-	body, _, err := client.do("GET", hubBase+"/api/whoami-v2", nil)
-	if err != nil {
-		return "", fmt.Errorf("fetch authenticated user namespace: %w", err)
-	}
-	var who struct {
-		Name string `json:"name"`
-	}
-	if err := json.Unmarshal(body, &who); err != nil || who.Name == "" {
-		return "", fmt.Errorf("could not determine namespace from token; set namespace explicitly")
-	}
-	return who.Name, nil
-}
-
-// SplitID parses a "namespace/name" resource ID into its components.
-// Exported for use in tests.
-func SplitID(id string) (namespace, name string, err error) {
-	return splitID(id)
-}
-
-func splitID(id string) (namespace, name string, err error) {
-	for i := len(id) - 1; i >= 0; i-- {
-		if id[i] == '/' {
-			return id[:i], id[i+1:], nil
-		}
-	}
-	return "", "", fmt.Errorf("invalid resource ID %q: expected namespace/name", id)
-}
-
-func unmarshalJSON(data []byte, v any) error {
-	return json.Unmarshal(data, v)
 }
