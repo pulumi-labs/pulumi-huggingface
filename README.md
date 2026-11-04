@@ -81,6 +81,7 @@ Deploy a dedicated compute instance that serves a Hugging Face model for product
 | `endpointType` | string | — | `"authenticated"` | Access type: `"public"`, `"authenticated"`, `"private"` |
 | `accountId` | string | — | — | AWS account ID for PrivateLink (private endpoints); sent as `privateService.accountId`. Changing it replaces the endpoint |
 | `privateLinkRegion` | string | — | `region` | AWS PrivateLink entry-point region (`"us-east-1"` or `"eu-west-1"`). Changing it replaces the endpoint |
+| `tags` | list[string] | — | unmanaged | Labels attached to the endpoint. Unmanaged while unset; removing tags that were set clears them |
 
 #### Outputs
 
@@ -186,6 +187,7 @@ Create and manage a Hugging Face Hub repository — a model repo or dataset repo
 | `namespace` | string | — | token owner | HF user or org namespace. Changing it replaces the resource |
 | `repoType` | string | — | `"model"` | Repository type: `"model"` or `"dataset"`. Changing it replaces the repository |
 | `private` | bool | — | `false` | Whether the repository is private |
+| `gated` | string | — | `"off"` | Gated access: `"off"`, `"auto"` (requests approved automatically) or `"manual"` (a maintainer approves each request) |
 
 #### Outputs
 
@@ -194,7 +196,70 @@ Create and manage a Hugging Face Hub repository — a model repo or dataset repo
 | `repoId` | string | Canonical ID: `namespace/name` |
 | `url` | string | Web URL of the repository |
 
-The Pulumi resource ID is `namespace/name` for a model and `datasets/namespace/name` for a dataset. Import with `pulumi import huggingface:index:Repository <name> <namespace>/<name>` or `... datasets/<namespace>/<name>`. Visibility changes are applied in place.
+The Pulumi resource ID is `namespace/name` for a model and `datasets/namespace/name` for a dataset. Import with `pulumi import huggingface:index:Repository <name> <namespace>/<name>` or `... datasets/<namespace>/<name>`. Visibility and gating changes are applied in place with one settings call.
+
+---
+
+### `Webhook`
+
+A Hub webhook that posts events for watched users, organizations, models, datasets, Spaces or buckets to a URL. Webhooks that trigger a Job are not supported yet.
+
+| Input | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `url` | string | ✓ | — | URL that receives the payloads |
+| `watched` | list | ✓ | — | Items to watch: objects with `type` (`bucket`, `dataset`, `model`, `org`, `space`, `user`) and `name` |
+| `domains` | list[string] | — | both | `repo` and/or `discussion`; the Hub watches both when unset (the Hub's value is the `effectiveDomains` output) |
+| `secret` | string (secret) | — | — | Signing secret. Write-only: never returned by the API, kept from state, cannot be imported |
+| `disabled` | bool | — | `false` | Pause the webhook (applied with the enable/disable calls) |
+| `token` | string | — | provider token | Per-resource API token override |
+
+Import ID: the webhook ID, for example `pulumi import huggingface:index:Webhook hook 64f9a55bb3115b4f513ec026`. Set `secret` again after an import.
+
+### `Collection` and `CollectionItem`
+
+`Collection` is a titled, curated list (`title`, `description`, `private`, `theme`, `namespace`; changing `namespace` replaces it). The Hub chooses a theme when none is set and reports it as `effectiveTheme`. Outputs: `slug`, `url`. Import ID: the slug, `namespace/title-slug-hash`.
+
+`CollectionItem` puts one model, dataset, Space, paper, bucket or collection into a collection: `collectionSlug`, `itemId`, `itemType` (all three replace on change) and an optional `note` (updated in place). Output: `itemObjectId`. Import ID: `<collection slug>/<item object ID>` (the object ID is shown by `getCollection`).
+
+### `RepositoryBranch` and `RepositoryTag`
+
+Git refs of a model, dataset or Space repository. `repoId` (`namespace/name`), optional `repoType` (`model`, `dataset`, `space`) and the ref name replace on change. `startingPoint` (branch) and `revision` / `message` (tag) are create-only and not readable from the API, so they are not detected as drift and are unset after an import. Output: `targetCommit`. Import ID: `<models|datasets|spaces>/namespace/name@<ref>`; without a prefix the repository is a model, for example `pulumi import huggingface:index:RepositoryBranch dev acme/model@dev`.
+
+### `Bucket`
+
+A Hub storage bucket (`namespace`, optional `name` defaulting to the resource name, `private`, `region`, `resourceGroupId`). The documented API has no bucket settings update, so **any change replaces the bucket and deletes its files**. Outputs: `bucketId`, `url`. Import ID: `namespace/name`.
+
+---
+
+## Functions
+
+Lookup functions never create anything. Each takes an optional `token` and fails with a "was not found" message for a missing object.
+
+| Function | Looks up | Notes |
+|---|---|---|
+| `getWhoami` | the identity behind the token | `name`, `type`, `fullName`, `orgs` |
+| `getInferenceEndpoint` | an endpoint by `namespace` (default: token owner) and `name` | status, url, model, compute, scaling, `tags` |
+| `listInferenceEndpoints` | the endpoints of a namespace | |
+| `getRepository` | a model or dataset by `repoId` and `repoType` | `private`, `gated` |
+| `getSpace` | a Space by `spaceId` | variables with values, secret **names** only (secret values are not supported by the Hugging Face API) |
+| `getWebhook` | a webhook by `webhookId` | the secret is not part of the result |
+| `getCollection` | a collection by `slug` | includes its items |
+| `getCollectionItem` | an item by `collectionSlug`, `itemId`, `itemType` | |
+| `getRepositoryBranch`, `getRepositoryTag` | a ref by `repoId`, optional `repoType`, and name | `ref`, `targetCommit` |
+| `getBucket` | a bucket by `namespace` (default: token owner) and `name` | size, file count |
+
+Example (TypeScript):
+
+```typescript
+import * as huggingface from "@pulumi/huggingface";
+
+const me = huggingface.getWhoamiOutput({});
+const repo = new huggingface.Repository("model", { gated: "auto" });
+const release = new huggingface.RepositoryTag("v1", { repoId: repo.repoId, tag: "v1.0", message: "first release" });
+export const owner = me.name;
+```
+
+The full list of what the Hugging Face APIs offer and what the provider does with each part is in [`research/coverage/huggingface.md`](../../../research/coverage/huggingface.md).
 
 ---
 

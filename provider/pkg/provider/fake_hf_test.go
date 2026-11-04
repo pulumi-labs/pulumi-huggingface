@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -36,11 +37,18 @@ type fakeHF struct {
 	repos     map[string]*fakeRepo     // "type/ns/name"
 	calls     []fakeCall
 
+	webhooks    map[string]*fakeWebhook    // by ID
+	collections map[string]*fakeCollection // by slug
+	buckets     map[string]*fakeBucket     // "ns/name"
+	nextID      int
+
 	// pollsUntilRunning is how many GETs an endpoint answers with a
 	// transitional state before reaching running.
 	pollsUntilRunning int
 	// failEndpoints makes new endpoints end in the failed state.
 	failEndpoints bool
+	// failOn makes matching requests answer 500: entries are "METHOD path-substring".
+	failOn []string
 }
 
 type fakeCall struct {
@@ -63,6 +71,9 @@ type fakeRepo struct {
 	gcTimeout     *int
 	secrets       map[string]map[string]any
 	variables     map[string]map[string]any
+	gated         string            // "", "auto" or "manual"
+	branches      map[string]string // name -> commit
+	tags          map[string]string // name -> commit
 }
 
 var fakeHardwareFlavors = []string{
@@ -80,6 +91,9 @@ func startFakeHF(t *testing.T) *fakeHF {
 		token:             fakeToken,
 		endpoints:         map[string]*fakeEndpoint{},
 		repos:             map[string]*fakeRepo{},
+		webhooks:          map[string]*fakeWebhook{},
+		collections:       map[string]*fakeCollection{},
+		buckets:           map[string]*fakeBucket{},
 		pollsUntilRunning: 2,
 	}
 	f.server = httptest.NewServer(http.HandlerFunc(f.handle))
@@ -115,9 +129,21 @@ func (f *fakeHF) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	path := r.URL.Path
+	for _, rule := range f.failOn {
+		if m, sub, ok := strings.Cut(rule, " "); ok && m == r.Method && strings.Contains(path, sub) {
+			apiError(w, http.StatusInternalServerError, "injected failure")
+			return
+		}
+	}
 	switch {
 	case path == "/api/whoami-v2":
-		writeJSON(w, 200, map[string]any{"name": "me"})
+		writeJSON(w, 200, map[string]any{"name": "me", "type": "user", "fullname": "Me Myself", "orgs": []map[string]any{{"name": "acme"}}})
+	case strings.HasPrefix(path, "/api/settings/webhooks"):
+		f.handleWebhook(w, r, strings.Split(strings.Trim(strings.TrimPrefix(path, "/api/settings/webhooks"), "/"), "/"), body)
+	case strings.HasPrefix(path, "/api/collections"):
+		f.handleCollection(w, r, strings.Split(strings.Trim(strings.TrimPrefix(path, "/api/collections"), "/"), "/"), body)
+	case strings.HasPrefix(path, "/api/buckets/"):
+		f.handleBucket(w, r, strings.Split(strings.TrimPrefix(path, "/api/buckets/"), "/"), body)
 	case strings.HasPrefix(path, "/v2/endpoint/"):
 		f.handleEndpoint(w, r, strings.Split(strings.TrimPrefix(path, "/v2/endpoint/"), "/"), body)
 	case path == "/api/repos/create" && r.Method == "POST":
@@ -248,6 +274,9 @@ func (f *fakeHF) handleEndpoint(w http.ResponseWriter, r *http.Request, parts []
 			},
 			"status": map[string]any{"state": "pending", "message": "Endpoint is pending", "url": ""},
 		}
+		if tags, ok := body["tags"]; ok {
+			stored["tags"] = tags
+		}
 		if ps := asMap(body["privateService"]); ps != nil {
 			stored["privateService"] = map[string]any{"accountId": ps["accountId"], "region": ps["region"], "shared": false}
 		}
@@ -257,6 +286,14 @@ func (f *fakeHF) handleEndpoint(w http.ResponseWriter, r *http.Request, parts []
 		}
 		f.endpoints[key] = &fakeEndpoint{raw: stored, stateNext: next}
 		writeJSON(w, 200, stored)
+	case len(parts) == 1 && r.Method == "GET":
+		items := []any{}
+		for _, k := range slices.Sorted(maps.Keys(f.endpoints)) {
+			if strings.HasPrefix(k, parts[0]+"/") {
+				items = append(items, f.endpoints[k].raw)
+			}
+		}
+		writeJSON(w, 200, map[string]any{"items": items})
 	case len(parts) == 2:
 		key := parts[0] + "/" + parts[1]
 		ep, ok := f.endpoints[key]
@@ -335,6 +372,7 @@ func (f *fakeHF) handleCreateRepo(w http.ResponseWriter, raw []byte) {
 	repo := &fakeRepo{
 		typ: body.Type, ns: ns, name: body.Name, private: body.Private,
 		secrets: map[string]map[string]any{}, variables: map[string]map[string]any{},
+		branches: map[string]string{"main": f.commit()}, tags: map[string]string{},
 	}
 	if body.Type == "space" {
 		repo.sdk = body.SDK
@@ -412,7 +450,10 @@ func (f *fakeHF) handleRepo(w http.ResponseWriter, r *http.Request, parts []stri
 	}
 	switch {
 	case sub == "" && r.Method == "GET":
-		out := map[string]any{"id": repo.ns + "/" + repo.name, "private": repo.private}
+		out := map[string]any{"id": repo.ns + "/" + repo.name, "private": repo.private, "gated": false}
+		if repo.gated != "" {
+			out["gated"] = repo.gated
+		}
 		if typ == "space" {
 			out["sdk"] = repo.sdk
 			rt := map[string]any{
@@ -426,13 +467,37 @@ func (f *fakeHF) handleRepo(w http.ResponseWriter, r *http.Request, parts []stri
 		}
 		writeJSON(w, 200, out)
 	case sub == "settings" && r.Method == "PUT":
-		p, ok := body["private"].(bool)
-		if !ok {
+		p, hasPrivate := body["private"].(bool)
+		g, hasGated := body["gated"]
+		if !hasPrivate && !hasGated {
 			apiError(w, 400, "At least one setting must be updated.")
 			return
 		}
-		repo.private = p
+		if hasGated {
+			switch gv := g.(type) {
+			case bool:
+				if gv {
+					apiError(w, 400, "gated must be 'auto', 'manual' or false")
+					return
+				}
+				repo.gated = ""
+			case string:
+				if gv != "auto" && gv != "manual" {
+					apiError(w, 400, "gated must be 'auto', 'manual' or false")
+					return
+				}
+				repo.gated = gv
+			default:
+				apiError(w, 400, "gated must be 'auto', 'manual' or false")
+				return
+			}
+		}
+		if hasPrivate {
+			repo.private = p
+		}
 		w.WriteHeader(200)
+	case sub == "refs" || sub == "branch" || sub == "tag":
+		f.handleRefs(w, r, repo, sub, parts[4:], body)
 	case typ != "space":
 		apiError(w, 404, "not found")
 	case sub == "hardware" && r.Method == "POST":
@@ -580,7 +645,8 @@ func (f *fakeHF) deleteRepoOutOfBand(typ, ns, name string) {
 func (f *fakeHF) addRepo(typ, ns, name string, mutate func(r *fakeRepo)) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	r := &fakeRepo{typ: typ, ns: ns, name: name, secrets: map[string]map[string]any{}, variables: map[string]map[string]any{}}
+	r := &fakeRepo{typ: typ, ns: ns, name: name, secrets: map[string]map[string]any{}, variables: map[string]map[string]any{},
+		branches: map[string]string{"main": f.commit()}, tags: map[string]string{}}
 	if typ == "space" {
 		r.sdk, r.hardware = "gradio", "cpu-basic"
 	}

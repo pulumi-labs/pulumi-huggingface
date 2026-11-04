@@ -4,6 +4,7 @@
 //   - InferenceEndpoint — dedicated compute for production model serving
 //   - Space             — interactive ML demos (Gradio, Docker, static)
 //   - Repository        — model and dataset repository containers
+//   - Webhook, Collection, CollectionItem, RepositoryBranch, RepositoryTag, Bucket
 package provider
 
 import (
@@ -49,6 +50,25 @@ func New() (pgp.Provider, error) {
 			infer.Resource[*InferenceEndpoint, InferenceEndpointArgs, InferenceEndpointState](&InferenceEndpoint{}),
 			infer.Resource[*Space, SpaceArgs, SpaceState](&Space{}),
 			infer.Resource[*Repository, RepositoryArgs, RepositoryState](&Repository{}),
+			infer.Resource[*Webhook, WebhookArgs, WebhookState](&Webhook{}),
+			infer.Resource[*Collection, CollectionArgs, CollectionState](&Collection{}),
+			infer.Resource[*CollectionItem, CollectionItemArgs, CollectionItemState](&CollectionItem{}),
+			infer.Resource[*RepositoryBranch, RepositoryBranchArgs, RepositoryBranchState](&RepositoryBranch{}),
+			infer.Resource[*RepositoryTag, RepositoryTagArgs, RepositoryTagState](&RepositoryTag{}),
+			infer.Resource[*Bucket, BucketArgs, BucketState](&Bucket{}),
+		).
+		WithFunctions(
+			infer.Function[*GetWhoami, GetWhoamiArgs, GetWhoamiResult](&GetWhoami{}),
+			infer.Function[*GetInferenceEndpoint, GetInferenceEndpointArgs, InferenceEndpointSummary](&GetInferenceEndpoint{}),
+			infer.Function[*ListInferenceEndpoints, ListInferenceEndpointsArgs, ListInferenceEndpointsResult](&ListInferenceEndpoints{}),
+			infer.Function[*GetSpace, GetSpaceArgs, GetSpaceResult](&GetSpace{}),
+			infer.Function[*GetRepository, GetRepositoryArgs, GetRepositoryResult](&GetRepository{}),
+			infer.Function[*GetWebhook, GetWebhookArgs, GetWebhookResult](&GetWebhook{}),
+			infer.Function[*GetCollection, GetCollectionArgs, GetCollectionResult](&GetCollection{}),
+			infer.Function[*GetCollectionItem, GetCollectionItemArgs, GetCollectionItemResult](&GetCollectionItem{}),
+			infer.Function[*GetRepositoryBranch, GetRepositoryBranchArgs, GetRepositoryBranchResult](&GetRepositoryBranch{}),
+			infer.Function[*GetRepositoryTag, GetRepositoryTagArgs, GetRepositoryTagResult](&GetRepositoryTag{}),
+			infer.Function[*GetBucket, GetBucketArgs, GetBucketResult](&GetBucket{}),
 		).
 		Build()
 }

@@ -414,3 +414,71 @@ func TestEndpoint_NoVersionProperty(t *testing.T) {
 		require.NotContains(t, r.Properties, "version", name)
 	}
 }
+
+func TestEndpoint_TagsLifecycle(t *testing.T) {
+	l := newLC(t, "InferenceEndpoint", "ep")
+	in := with(endpointInputs(), map[string]property.Value{"tags": arr(str("prod"), str("team-a"))})
+	c := l.create(in)
+	body := decodeBody(t, l.f.callsMatching("POST", "/v2/endpoint/me")[0].Body)
+	require.Equal(t, []any{"prod", "team-a"}, body["tags"])
+	require.Equal(t, []any{"prod", "team-a"}, l.f.endpoint("me/ep")["tags"])
+	requireNoChanges(t, l.diff(c.ID, c.Properties, in, in))
+
+	// The API may return the tags in another order: that is not drift.
+	l.f.mutateEndpoint("me/ep", func(raw map[string]any) { raw["tags"] = []any{"team-a", "prod"} })
+	rd := l.read(c.ID, c.Properties, in)
+	requireNoChanges(t, l.diff(c.ID, rd.Properties, in, rd.Inputs))
+	reordered := with(in, map[string]property.Value{"tags": arr(str("team-a"), str("prod"))})
+	requireNoChanges(t, l.diff(c.ID, rd.Properties, reordered, in))
+
+	// Changing the tags is an update that sends them.
+	next := with(in, map[string]property.Value{"tags": arr(str("prod"), str("team-b"))})
+	d := l.diff(c.ID, rd.Properties, next, in)
+	require.Equal(t, pgp.Update, d.DetailedDiff["tags"].Kind)
+	require.False(t, d.DeleteBeforeReplace)
+	l.f.resetCalls()
+	u := l.update(c.ID, rd.Properties, next, in)
+	put := decodeBody(t, l.f.callsMatching("PUT", "/v2/endpoint/me/ep")[0].Body)
+	require.Equal(t, []any{"prod", "team-b"}, put["tags"])
+	requireNoChanges(t, l.diff(c.ID, u.Properties, next, next))
+
+	// An empty list clears them.
+	none := with(in, map[string]property.Value{"tags": arr()})
+	require.Equal(t, pgp.Update, l.diff(c.ID, u.Properties, none, next).DetailedDiff["tags"].Kind)
+	l.f.resetCalls()
+	l.update(c.ID, u.Properties, none, next)
+	put = decodeBody(t, l.f.callsMatching("PUT", "/v2/endpoint/me/ep")[0].Body)
+	require.Equal(t, []any{}, put["tags"])
+	require.Empty(t, l.f.endpoint("me/ep")["tags"])
+}
+
+func TestEndpoint_TagsDriftUnsetAndImport(t *testing.T) {
+	l := newLC(t, "InferenceEndpoint", "ep")
+	in := endpointInputs()
+	c := l.create(in)
+	require.NotContains(t, decodeBody(t, l.f.callsMatching("POST", "/v2/endpoint/me")[0].Body), "tags")
+
+	// Unset means unmanaged: tags added elsewhere are not a diff.
+	l.f.mutateEndpoint("me/ep", func(raw map[string]any) { raw["tags"] = []any{"added-elsewhere"} })
+	rd := l.read(c.ID, c.Properties, in)
+	requireNoChanges(t, l.diff(c.ID, rd.Properties, in, rd.Inputs))
+	l.f.resetCalls()
+	l.update(c.ID, rd.Properties, with(in, map[string]property.Value{"modelTask": str("fill-mask")}), in)
+	require.NotContains(t, decodeBody(t, l.f.callsMatching("PUT", "/v2/endpoint/me/ep")[0].Body), "tags")
+
+	// Managed tags removed elsewhere are drift to repair.
+	managed := with(in, map[string]property.Value{"tags": arr(str("a"))})
+	m := newLC(t, "InferenceEndpoint", "ep2")
+	mc := m.create(managed)
+	m.f.mutateEndpoint("me/ep2", func(raw map[string]any) { delete(raw, "tags") })
+	mrd := m.read(mc.ID, mc.Properties, managed)
+	require.Empty(t, strs(mrd.Inputs, "tags"))
+	require.Equal(t, pgp.Update, m.diff(mc.ID, mrd.Properties, managed, mrd.Inputs).DetailedDiff["tags"].Kind)
+
+	// Import adopts the API's tags.
+	m.f.mutateEndpoint("me/ep2", func(raw map[string]any) { raw["tags"] = []any{"x", "y"} })
+	imp := m.read(mc.ID, empty(), empty())
+	require.Equal(t, []string{"x", "y"}, strs(imp.Inputs, "tags"))
+	chk := m.checked(imp.Inputs)
+	requireNoChanges(t, m.diff(imp.ID, imp.Properties, chk, imp.Inputs))
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"slices"
 	"time"
 
 	p "github.com/pulumi/pulumi-go-provider"
@@ -101,6 +102,10 @@ type InferenceEndpointArgs struct {
 	// ("us-east-1" or "eu-west-1"), sent as privateService.region. Defaults to
 	// region when accountId is set. Changing it replaces the endpoint.
 	PrivateLinkRegion *string `pulumi:"privateLinkRegion,optional" provider:"replaceOnChanges"`
+
+	// Tags are free-form labels attached to the endpoint (the API's tags
+	// field). Unmanaged while unset; removing tags that were set clears them.
+	Tags []string `pulumi:"tags,optional"`
 }
 
 // InferenceEndpointState is the persisted state of an inference endpoint.
@@ -133,6 +138,7 @@ func (a *InferenceEndpointArgs) Annotate(ann infer.Annotator) {
 		"The legacy 'protected' type is no longer supported by the API.")
 	ann.Describe(&a.ScaleToZeroTimeout, "Idle minutes before scaling to zero when minReplica is 0. The API default is 15.")
 	ann.Describe(&a.CustomImageEnvVars, "Environment variables for the container (model.env).")
+	ann.Describe(&a.Tags, "Labels attached to the endpoint. Unmanaged while unset; removing tags that were set clears them.")
 	ann.Describe(&a.AccountID, "AWS account ID for AWS PrivateLink on a private endpoint. Changing it replaces the endpoint.")
 	ann.Describe(&a.PrivateLinkRegion, "AWS region of the PrivateLink entry point ('us-east-1' or 'eu-west-1'). Defaults to region.")
 }
@@ -222,6 +228,7 @@ func buildEndpointCreateRequest(name string, args InferenceEndpointArgs) CreateE
 		Compute:  endpointCompute(args),
 		Model:    model,
 		Provider: EndpointProvider{Vendor: args.Vendor, Region: args.Region},
+		Tags:     slices.Clone(args.Tags),
 	}
 	if args.AccountID != nil && *args.AccountID != "" {
 		req.PrivateService = &PrivateService{
@@ -254,12 +261,35 @@ func buildEndpointUpdateRequest(old, args InferenceEndpointArgs) UpdateEndpointR
 	if imageChanged(old, args) {
 		model.Image = endpointImage(args)
 	}
-	return UpdateEndpointRequest{
+	upd := UpdateEndpointRequest{
 		Type:     &endType,
 		Compute:  &compute,
 		Model:    &model,
 		Provider: &EndpointProvider{Vendor: args.Vendor, Region: args.Region},
 	}
+	if tagsChanged(old.Tags, args.Tags) {
+		tags := slices.Clone(args.Tags)
+		if tags == nil {
+			tags = []string{}
+		}
+		upd.Tags = &tags
+	}
+	return upd
+}
+
+// tagsChanged reports a change in the managed tags. An empty or unset list
+// manages nothing, except that removing tags that were set clears them (an
+// empty list and an unset one cannot be told apart once decoded).
+func tagsChanged(old, new []string) bool {
+	if len(new) == 0 {
+		return len(old) > 0
+	}
+	return !tagsEqual(old, new)
+}
+
+// tagsEqual compares tag lists ignoring order: the API may reorder them.
+func tagsEqual(a, b []string) bool {
+	return slices.Equal(slices.Sorted(slices.Values(a)), slices.Sorted(slices.Values(b)))
 }
 
 func imageChanged(old, n InferenceEndpointArgs) bool {
@@ -406,6 +436,20 @@ func refreshEndpoint(ns string, prior InferenceEndpointArgs, d *EndpointDetails)
 		inputs.CustomImageEnvVars = env
 	}
 
+	// Tags: unmanaged while unset (an unset input never diffs); once managed
+	// the API's list is the truth, keeping the user's order when equal.
+	if imported {
+		if len(d.Tags) > 0 {
+			inputs.Tags = slices.Clone(d.Tags)
+		}
+	} else if len(prior.Tags) > 0 {
+		if tagsEqual(prior.Tags, d.Tags) {
+			inputs.Tags = prior.Tags
+		} else {
+			inputs.Tags = append([]string{}, d.Tags...)
+		}
+	}
+
 	if ps := d.PrivateService; ps != nil && ps.AccountID != "" {
 		inputs.AccountID = refreshOpt(prior.AccountID, ps.AccountID, true, imported, nil)
 		inputs.PrivateLinkRegion = refreshOpt(prior.PrivateLinkRegion, ps.Region, ps.Region != "", imported, nil)
@@ -486,6 +530,7 @@ func (r *InferenceEndpoint) Diff(
 	d.update("minReplica", orDefault(o.MinReplica, 1) != orDefault(n.MinReplica, 1))
 	d.update("maxReplica", orDefault(o.MaxReplica, 1) != orDefault(n.MaxReplica, 1))
 	d.update("scaleToZeroTimeout", ptrChanged(o.ScaleToZeroTimeout, n.ScaleToZeroTimeout))
+	d.update("tags", tagsChanged(o.Tags, n.Tags))
 	d.update("endpointType",
 		orDefault(o.EndpointType, defaultEndpointType) != orDefault(n.EndpointType, defaultEndpointType))
 	return d.response(), nil

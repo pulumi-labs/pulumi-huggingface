@@ -180,6 +180,7 @@ type EndpointDetails struct {
 	Model          EndpointModel    `json:"model"`
 	Provider       EndpointProvider `json:"provider"`
 	PrivateService *PrivateService  `json:"privateService,omitempty"`
+	Tags           []string         `json:"tags,omitempty"`
 	Status         EndpointStatus   `json:"status"`
 }
 
@@ -191,6 +192,7 @@ type CreateEndpointRequest struct {
 	Model          EndpointModel    `json:"model"`
 	Provider       EndpointProvider `json:"provider"`
 	PrivateService *PrivateService  `json:"privateService,omitempty"`
+	Tags           []string         `json:"tags,omitempty"`
 }
 
 // UpdateEndpointRequest is the payload for PUT /endpoint/{namespace}/{name}.
@@ -199,6 +201,8 @@ type UpdateEndpointRequest struct {
 	Compute  *EndpointCompute  `json:"compute,omitempty"`
 	Model    *EndpointModel    `json:"model,omitempty"`
 	Provider *EndpointProvider `json:"provider,omitempty"`
+	// Tags is a pointer so an empty list ([]) clears the tags.
+	Tags *[]string `json:"tags,omitempty"`
 }
 
 func decodeEndpoint(body []byte) (*EndpointDetails, error) {
@@ -332,6 +336,8 @@ type RepoDetails struct {
 	Private bool          `json:"private"`
 	SDK     *string       `json:"sdk,omitempty"`
 	Runtime *SpaceRuntime `json:"runtime,omitempty"`
+	// Gated is false, "auto" or "manual" (models and datasets).
+	Gated json.RawMessage `json:"gated,omitempty"`
 }
 
 // EffectiveHardware returns the hardware the Space is configured for: the

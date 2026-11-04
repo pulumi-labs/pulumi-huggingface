@@ -4,6 +4,9 @@
 
 ### Changed
 
+- `InferenceEndpoint`: new optional `tags` input (create and update payloads follow `huggingface_hub`). Unmanaged while unset; removing tags that were set clears them. No existing property or ID changed.
+- `Repository`: new optional `gated` input (`off` default, `auto`, `manual`), applied through the repo settings call together with `private`. No existing property or ID changed.
+
 - `go.mod`/`go.sum` moved from `provider/` to the provider's top level (module path is now `github.com/pulumi/autoregistry/lib/providers/huggingface`); the Makefile builds from there. No change to the provider binary, schema or SDKs.
 - Examples and templates are mirror-ready: all 6 examples and 12 templates use the default provider (no explicit `Provider` resource, no per-resource `token` argument), so credentials come from `pulumi config set huggingface:token --secret` or `HUGGINGFACE_TOKEN`. The `huggingface-csharp` example and the `huggingface-cloud-csharp` template no longer hit the ambiguous `Config` compile error.
 
@@ -24,6 +27,11 @@
 - `huggingface` provider: the `huggingface:token` config key now falls back to the `HUGGINGFACE_TOKEN` environment variable when unset (the previous struct tag was ignored by the framework). Explicit config still wins.
 
 ### Added
+
+- New resources `Webhook`, `Collection`, `CollectionItem`, `RepositoryBranch`, `RepositoryTag` and `Bucket`, each with create, read, update (or a documented replace), delete, import by ID alone, deletion-outside-Pulumi handling and an idempotent diff. Import IDs: the webhook ID; the collection slug; `<collection slug>/<item object ID>`; `<models|datasets|spaces>/namespace/name@<ref>` for branches and tags (no prefix means a model); `namespace/name` for buckets. `Webhook.secret` is write-only and secret. `Bucket` replaces on every change (the documented API cannot update one), which deletes its files.
+- New lookup functions `getWhoami`, `getInferenceEndpoint`, `listInferenceEndpoints`, `getSpace`, `getRepository`, `getWebhook`, `getCollection`, `getCollectionItem`, `getRepositoryBranch`, `getRepositoryTag` and `getBucket`. `getSpace` returns secret names only: secret values are not supported by the Hugging Face API.
+- `research/coverage/huggingface.md`: the coverage inventory of the Hub API, the Inference Endpoints API and the `huggingface_hub` SDK, classifying every operation group (resource, lookup, runtime, deferred, out of scope). The two OpenAPI documents were not downloadable, so shapes were verified against `huggingface_hub`; the inventory lists what stays deferred for that reason (endpoint CIDR lists and custom domains, Job-triggering webhooks, Enterprise groups, scheduled jobs, more repository settings).
+- Tests: the fake Hugging Face server now covers webhooks, collections, git refs, buckets, repository `gated`, endpoint tags, listing and whoami, with lifecycle, import, drift, deleted-outside, failure-after-create and lookup tests for every new resource and function, and a schema test that no input is named `version`.
 
 - `templates/inference-endpoint-huggingface-cloud-<lang>` starters (all 6 languages) — scenario template that provisions a dedicated `InferenceEndpoint` plus a Gradio `Space` wired to call it, the production model-serving pattern for HF.
 - `templates/` directory with six `pulumi new`-compatible starters (`huggingface-cloud-typescript`, `-python`, `-go`, `-csharp`, `-java`, `-yaml`). Each starter provisions a free-tier Hugging Face model `Repository` plus a Gradio `Space` on `cpu-basic` hardware — a zero-cost onramp to the canonical HF Hub workflow.

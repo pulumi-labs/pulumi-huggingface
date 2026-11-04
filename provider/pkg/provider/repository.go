@@ -34,6 +34,11 @@ type RepositoryArgs struct {
 
 	// Private controls whether the repository is private. Defaults to false.
 	Private *bool `pulumi:"private,optional"`
+
+	// Gated controls gated access: "off" (default), "auto" (access requests
+	// are approved automatically) or "manual" (a maintainer approves each
+	// request).
+	Gated *string `pulumi:"gated,optional"`
 }
 
 // RepositoryState is the persisted state of a repository.
@@ -56,6 +61,7 @@ func (r *Repository) Annotate(a infer.Annotator) {
 func (a *RepositoryArgs) Annotate(ann infer.Annotator) {
 	ann.Describe(&a.RepoType, "The repository type: 'model' (default) or 'dataset'. Changing it replaces the repository.")
 	ann.Describe(&a.Private, "Whether the repository is private. Defaults to false (public).")
+	ann.Describe(&a.Gated, "Gated access: 'off' (default), 'auto' (requests approved automatically) or 'manual' (a maintainer approves each request).")
 	ann.Describe(&a.Namespace, "The owning user or organization. Defaults to the token's user. Changing it replaces the repository.")
 }
 
@@ -138,6 +144,16 @@ func (r *Repository) Check(
 			})
 		}
 	}
+	if args.Gated != nil {
+		switch *args.Gated {
+		case "off", "auto", "manual":
+		default:
+			failures = append(failures, p.CheckFailure{
+				Property: "gated",
+				Reason:   fmt.Sprintf("invalid gated %q; must be 'off', 'auto' or 'manual'", *args.Gated),
+			})
+		}
+	}
 	return infer.CheckResponse[RepositoryArgs]{Inputs: args, Failures: failures}, nil
 }
 
@@ -180,7 +196,17 @@ func (r *Repository) Create(
 	state.RepoID = id
 	state.RepoType = ptr(repoType)
 	state.URL = repoURL(repoType, id)
-	return infer.CreateResponse[RepositoryState]{ID: repoResourceID(repoType, id), Output: state}, nil
+	resID := repoResourceID(repoType, id)
+	if g := orDefault(args.Gated, "off"); g != "off" {
+		// Gating is a settings call after creation; the repository exists, so a
+		// failure leaves it recorded with its partial state.
+		if err := client.UpdateRepoSettings(repoType, namespace, req.Name, map[string]any{"gated": gatedSetting(g)}); err != nil {
+			state.Gated = nil
+			return infer.CreateResponse[RepositoryState]{ID: resID, Output: state},
+				infer.ResourceInitFailedError{Reasons: []string{err.Error()}}
+		}
+	}
+	return infer.CreateResponse[RepositoryState]{ID: resID, Output: state}, nil
 }
 
 func (r *Repository) Read(
@@ -225,11 +251,14 @@ func (r *Repository) Read(
 		inputs.RepoType = ptr(repoType)
 	}
 	inputs.Private = refreshOpt(prior.Private, repo.Private, true, imported, ptr(false))
+	apiGated := gatedValue(repo.Gated)
+	inputs.Gated = refreshOpt(prior.Gated, apiGated, true, imported, ptr("off"))
 
 	stateArgs := inputs
 	stateArgs.Namespace = ptr(namespace)
 	stateArgs.RepoType = ptr(repoType)
 	stateArgs.Private = ptr(repo.Private)
+	stateArgs.Gated = ptr(apiGated)
 	repoID := namespace + "/" + name
 	return resp{
 		ID:     req.ID,
@@ -251,6 +280,7 @@ func (r *Repository) Diff(
 
 	d.update("token", orDefault(o.Token, "") != orDefault(n.Token, ""))
 	d.update("private", orDefault(o.Private, false) != orDefault(n.Private, false))
+	d.update("gated", orDefault(o.Gated, "off") != orDefault(n.Gated, "off"))
 	return d.response(), nil
 }
 
@@ -273,8 +303,15 @@ func (r *Repository) Update(
 	if err != nil {
 		return infer.UpdateResponse[RepositoryState]{}, err
 	}
+	settings := map[string]any{}
 	if orDefault(req.State.Private, false) != orDefault(req.Inputs.Private, false) {
-		if err := client.UpdateRepoVisibility(repoType, namespace, name, orDefault(req.Inputs.Private, false)); err != nil {
+		settings["private"] = orDefault(req.Inputs.Private, false)
+	}
+	if g := orDefault(req.Inputs.Gated, "off"); orDefault(req.State.Gated, "off") != g {
+		settings["gated"] = gatedSetting(g)
+	}
+	if len(settings) > 0 {
+		if err := client.UpdateRepoSettings(repoType, namespace, name, settings); err != nil {
 			return infer.UpdateResponse[RepositoryState]{}, fmt.Errorf("update repository %q: %w", req.ID, err)
 		}
 	}
