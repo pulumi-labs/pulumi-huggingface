@@ -1,5 +1,5 @@
 import pulumi
-import pulumi_huggingface as huggingface
+import pulumi_labs_huggingface as huggingface
 
 # Deploy a text-embedding model for RAG pipelines
 endpoint = huggingface.InferenceEndpoint(

@@ -2,8 +2,8 @@ package com.pulumi.example;
 
 import com.pulumi.Pulumi;
 import com.pulumi.core.Output;
-import com.pulumi.huggingface.InferenceEndpoint;
-import com.pulumi.huggingface.InferenceEndpointArgs;
+import com.pulumi.labs.huggingface.InferenceEndpoint;
+import com.pulumi.labs.huggingface.InferenceEndpointArgs;
 
 public class App {
     public static void main(String[] args) {

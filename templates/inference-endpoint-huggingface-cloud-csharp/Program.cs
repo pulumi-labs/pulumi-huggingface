@@ -1,11 +1,11 @@
 using Pulumi;
-using Pulumi.Huggingface;
-using Pulumi.Huggingface.Inputs;
+using Pulumi.Labs.Huggingface;
+using Pulumi.Labs.Huggingface.Inputs;
 using System.Collections.Generic;
 
 return await Deployment.RunAsync(() =>
 {
-    // Use global::Pulumi.Config to avoid ambiguity with Pulumi.Huggingface.Config.
+    // Use global::Pulumi.Config to avoid ambiguity with Pulumi.Labs.Huggingface.Config.
     var config          = new global::Pulumi.Config();
     var hfToken         = config.RequireSecret("hfToken");
     var ns              = config.Get("namespace");

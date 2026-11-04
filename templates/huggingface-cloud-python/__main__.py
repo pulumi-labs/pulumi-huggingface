@@ -1,5 +1,5 @@
 import pulumi
-import pulumi_huggingface as huggingface
+import pulumi_labs_huggingface as huggingface
 
 config     = pulumi.Config()
 namespace  = config.get("namespace") or None

@@ -1,5 +1,5 @@
 using Pulumi;
-using Pulumi.Huggingface;
+using Pulumi.Labs.Huggingface;
 using System.Collections.Generic;
 
 return await Deployment.RunAsync(() =>

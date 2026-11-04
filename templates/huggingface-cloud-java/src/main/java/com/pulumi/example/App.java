@@ -2,10 +2,10 @@ package com.pulumi.example;
 
 import com.pulumi.Context;
 import com.pulumi.Pulumi;
-import com.pulumi.huggingface.Repository;
-import com.pulumi.huggingface.RepositoryArgs;
-import com.pulumi.huggingface.Space;
-import com.pulumi.huggingface.SpaceArgs;
+import com.pulumi.labs.huggingface.Repository;
+import com.pulumi.labs.huggingface.RepositoryArgs;
+import com.pulumi.labs.huggingface.Space;
+import com.pulumi.labs.huggingface.SpaceArgs;
 
 public class App {
     public static void main(String[] args) {

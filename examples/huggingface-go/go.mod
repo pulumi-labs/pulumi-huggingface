@@ -3,6 +3,6 @@ module github.com/pulumi/examples/huggingface-go
 go 1.25.8
 
 require (
-	github.com/pulumi/pulumi-huggingface/sdk/go/huggingface v0.1.0
+	github.com/pulumi-labs/pulumi-huggingface/sdk/go/huggingface v0.1.0
 	github.com/pulumi/pulumi/sdk/v3 v3.0.0
 )

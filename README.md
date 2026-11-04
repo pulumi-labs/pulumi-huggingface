@@ -1,5 +1,8 @@
 # Hugging Face Pulumi Provider
 
+> [!NOTE]
+> **Experimental.** This provider is experimental, versions are `0.x`, and its API may change without notice.
+
 Manage [Hugging Face](https://huggingface.co) resources as infrastructure with Pulumi — across TypeScript, Python, Go, C#, Java, and YAML.
 
 This provider covers the resources that AI/ML engineering teams care about most: inference endpoints, Spaces, and Hub repositories. Declare them in code, version them in Git, and deploy them with the same workflow as the rest of your cloud infrastructure.
@@ -10,19 +13,19 @@ Install the provider package for your language:
 
 ```bash
 # TypeScript / JavaScript
-npm install @pulumi/huggingface
+npm install @pulumi-labs/huggingface
 
 # Python
-pip install pulumi-huggingface
+pip install pulumi-labs-huggingface
 
 # Go
-go get github.com/pulumi/pulumi-huggingface/sdk/go/huggingface
+go get github.com/pulumi-labs/pulumi-huggingface/sdk/go/huggingface
 
 # .NET
-dotnet add package Pulumi.Huggingface
+dotnet add package Pulumi.Labs.Huggingface
 
 # Java (Maven)
-# Add com.pulumi:huggingface to your pom.xml
+# Add com.pulumi.labs:huggingface to your pom.xml
 
 # YAML — no package install required
 ```
@@ -96,7 +99,7 @@ Import with `pulumi import huggingface:index:InferenceEndpoint <name> <namespace
 
 ```typescript
 import * as pulumi from "@pulumi/pulumi";
-import * as huggingface from "@pulumi/huggingface";
+import * as huggingface from "@pulumi-labs/huggingface";
 
 const endpoint = new huggingface.InferenceEndpoint("llama-3-8b", {
     modelRepository: "meta-llama/Meta-Llama-3-8B-Instruct",
@@ -120,7 +123,7 @@ export const endpointUrl = endpoint.url;
 
 ```python
 import pulumi
-import pulumi_huggingface as huggingface
+import pulumi_labs_huggingface as huggingface
 
 endpoint = huggingface.InferenceEndpoint(
     "mistral-7b-tgi",
@@ -251,7 +254,7 @@ Lookup functions never create anything. Each takes an optional `token` and fails
 Example (TypeScript):
 
 ```typescript
-import * as huggingface from "@pulumi/huggingface";
+import * as huggingface from "@pulumi-labs/huggingface";
 
 const me = huggingface.getWhoamiOutput({});
 const repo = new huggingface.Repository("model", { gated: "auto" });

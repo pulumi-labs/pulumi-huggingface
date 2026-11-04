@@ -7,7 +7,7 @@
 - `InferenceEndpoint`: new optional `tags` input (create and update payloads follow `huggingface_hub`). Unmanaged while unset; removing tags that were set clears them. No existing property or ID changed.
 - `Repository`: new optional `gated` input (`off` default, `auto`, `manual`), applied through the repo settings call together with `private`. No existing property or ID changed.
 
-- `go.mod`/`go.sum` moved from `provider/` to the provider's top level (module path is now `github.com/pulumi/autoregistry/lib/providers/huggingface`); the Makefile builds from there. No change to the provider binary, schema or SDKs.
+- `go.mod`/`go.sum` moved from `provider/` to the provider's top level (the monorepo module path now ends in `lib/providers/huggingface`); the Makefile builds from there. No change to the provider binary, schema or SDKs.
 - Examples and templates are mirror-ready: all 6 examples and 12 templates use the default provider (no explicit `Provider` resource, no per-resource `token` argument), so credentials come from `pulumi config set huggingface:token --secret` or `HUGGINGFACE_TOKEN`. The `huggingface-csharp` example and the `huggingface-cloud-csharp` template no longer hit the ambiguous `Config` compile error.
 
 ### Fixed

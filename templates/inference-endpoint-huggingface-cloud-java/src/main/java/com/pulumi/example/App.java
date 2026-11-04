@@ -2,12 +2,12 @@ package com.pulumi.example;
 
 import com.pulumi.Context;
 import com.pulumi.Pulumi;
-import com.pulumi.huggingface.InferenceEndpoint;
-import com.pulumi.huggingface.InferenceEndpointArgs;
-import com.pulumi.huggingface.Space;
-import com.pulumi.huggingface.SpaceArgs;
-import com.pulumi.huggingface.inputs.SpaceVariableInputArgs;
-import com.pulumi.huggingface.inputs.SpaceSecretInputArgs;
+import com.pulumi.labs.huggingface.InferenceEndpoint;
+import com.pulumi.labs.huggingface.InferenceEndpointArgs;
+import com.pulumi.labs.huggingface.Space;
+import com.pulumi.labs.huggingface.SpaceArgs;
+import com.pulumi.labs.huggingface.inputs.SpaceVariableInputArgs;
+import com.pulumi.labs.huggingface.inputs.SpaceSecretInputArgs;
 
 public class App {
     public static void main(String[] args) {

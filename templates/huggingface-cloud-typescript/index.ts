@@ -1,5 +1,5 @@
 import * as pulumi from "@pulumi/pulumi";
-import * as huggingface from "@pulumi/huggingface";
+import * as huggingface from "@pulumi-labs/huggingface";
 
 const config = new pulumi.Config();
 const namespace = config.get("namespace") || undefined;
