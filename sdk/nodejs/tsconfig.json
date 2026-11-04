@@ -1,0 +1,51 @@
+{
+    "compilerOptions": {
+        // Output
+        "outDir": "bin",
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "stripInternal": true,
+        // Environment
+        "target": "ES2022",
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
+        "moduleDetection": "force",
+        "types": ["node"],
+        // Type Checking
+        "strict": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitReturns": true,
+        "skipLibCheck": true
+    },
+    "files": [
+        "bucket.ts",
+        "collection.ts",
+        "collectionItem.ts",
+        "config/index.ts",
+        "config/vars.ts",
+        "getBucket.ts",
+        "getCollection.ts",
+        "getCollectionItem.ts",
+        "getInferenceEndpoint.ts",
+        "getRepository.ts",
+        "getRepositoryBranch.ts",
+        "getRepositoryTag.ts",
+        "getSpace.ts",
+        "getWebhook.ts",
+        "getWhoami.ts",
+        "index.ts",
+        "inferenceEndpoint.ts",
+        "listInferenceEndpoints.ts",
+        "provider.ts",
+        "repository.ts",
+        "repositoryBranch.ts",
+        "repositoryTag.ts",
+        "space.ts",
+        "types/index.ts",
+        "types/input.ts",
+        "types/output.ts",
+        "utilities.ts",
+        "webhook.ts"
+    ]
+}

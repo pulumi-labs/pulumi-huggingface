@@ -21,7 +21,7 @@ import (
 
 	pgp "github.com/pulumi/pulumi-go-provider"
 
-	"github.com/pulumi/autoregistry/lib/providers/huggingface/provider/pkg/provider"
+	"github.com/pulumi-labs/pulumi-huggingface/provider/pkg/provider"
 )
 
 // ---------------------------------------------------------------------------

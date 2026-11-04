@@ -1,0 +1,1827 @@
+{
+  "name": "huggingface",
+  "displayName": "Hugging Face",
+  "description": "Experimental: manage Hugging Face resources — Inference Endpoints, Spaces, and Hub repositories — as infrastructure with Pulumi.",
+  "keywords": [
+    "pulumi",
+    "huggingface",
+    "ai",
+    "machine-learning",
+    "category/cloud"
+  ],
+  "homepage": "https://huggingface.co",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/pulumi-labs/pulumi-huggingface",
+  "pluginDownloadURL": "github://api.github.com/pulumi-labs/pulumi-huggingface",
+  "publisher": "Pulumi Labs",
+  "language": {
+    "csharp": {
+      "respectSchemaVersion": true,
+      "rootNamespace": "Pulumi.Labs"
+    },
+    "go": {
+      "generateResourceContainerTypes": true,
+      "importBasePath": "github.com/pulumi-labs/pulumi-huggingface/sdk/go/huggingface",
+      "respectSchemaVersion": true
+    },
+    "java": {
+      "basePackage": "com.pulumi.labs",
+      "respectSchemaVersion": true
+    },
+    "nodejs": {
+      "packageDescription": "Experimental: manage Hugging Face resources — Inference Endpoints, Spaces, and Hub repositories — as infrastructure with Pulumi.",
+      "packageName": "@pulumi-labs/huggingface",
+      "respectSchemaVersion": true
+    },
+    "python": {
+      "packageName": "pulumi_labs_huggingface",
+      "pyproject": {
+        "enabled": true
+      },
+      "respectSchemaVersion": true
+    }
+  },
+  "config": {
+    "variables": {
+      "token": {
+        "type": "string",
+        "description": "Hugging Face API token. Overridable per resource. Falls back to the HUGGINGFACE_TOKEN environment variable.",
+        "defaultInfo": {
+          "environment": [
+            "HUGGINGFACE_TOKEN"
+          ]
+        },
+        "secret": true
+      }
+    }
+  },
+  "types": {
+    "huggingface:index:CollectionItemSummary": {
+      "properties": {
+        "itemId": {
+          "type": "string",
+          "description": "The repository ID, paper ID or collection slug."
+        },
+        "itemObjectId": {
+          "type": "string",
+          "description": "The item's database ID (the last segment of a CollectionItem ID)."
+        },
+        "itemType": {
+          "type": "string",
+          "description": "The item type."
+        },
+        "note": {
+          "type": "string",
+          "description": "The note on the item, when set."
+        },
+        "position": {
+          "type": "integer",
+          "description": "The item's position in the collection."
+        }
+      },
+      "type": "object",
+      "required": [
+        "itemObjectId",
+        "itemId",
+        "itemType",
+        "position"
+      ]
+    },
+    "huggingface:index:InferenceEndpointSummary": {
+      "properties": {
+        "accelerator": {
+          "type": "string",
+          "description": "The accelerator type."
+        },
+        "endpointType": {
+          "type": "string",
+          "description": "Access type: 'public', 'authenticated' or 'private'."
+        },
+        "instanceSize": {
+          "type": "string",
+          "description": "The instance size."
+        },
+        "instanceType": {
+          "type": "string",
+          "description": "The instance family."
+        },
+        "maxReplica": {
+          "type": "integer",
+          "description": "Maximum replicas."
+        },
+        "minReplica": {
+          "type": "integer",
+          "description": "Minimum replicas."
+        },
+        "modelFramework": {
+          "type": "string",
+          "description": "The serving framework."
+        },
+        "modelRepository": {
+          "type": "string",
+          "description": "The model repository being served."
+        },
+        "modelRevision": {
+          "type": "string",
+          "description": "The pinned model revision, when set."
+        },
+        "modelTask": {
+          "type": "string",
+          "description": "The inference task."
+        },
+        "name": {
+          "type": "string",
+          "description": "The endpoint name."
+        },
+        "namespace": {
+          "type": "string",
+          "description": "The owning user or organization."
+        },
+        "region": {
+          "type": "string",
+          "description": "The cloud region."
+        },
+        "scaleToZeroTimeout": {
+          "type": "integer",
+          "description": "Idle minutes before scale to zero, when set."
+        },
+        "status": {
+          "type": "string",
+          "description": "Lifecycle state, for example 'running' or 'scaledToZero'."
+        },
+        "statusMessage": {
+          "type": "string",
+          "description": "The status message reported by the API."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Labels attached to the endpoint."
+        },
+        "url": {
+          "type": "string",
+          "description": "The HTTPS URL for inference; empty until the endpoint is running."
+        },
+        "vendor": {
+          "type": "string",
+          "description": "The cloud vendor."
+        }
+      },
+      "type": "object",
+      "required": [
+        "name",
+        "namespace",
+        "endpointType",
+        "status",
+        "statusMessage",
+        "url",
+        "modelRepository",
+        "modelFramework",
+        "modelTask",
+        "vendor",
+        "region",
+        "accelerator",
+        "instanceType",
+        "instanceSize",
+        "minReplica",
+        "maxReplica",
+        "tags"
+      ]
+    },
+    "huggingface:index:SpaceSecretInput": {
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string",
+          "secret": true
+        }
+      },
+      "type": "object",
+      "required": [
+        "key",
+        "value"
+      ]
+    },
+    "huggingface:index:SpaceVariableInput": {
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [
+        "key",
+        "value"
+      ]
+    },
+    "huggingface:index:WebhookWatchedItem": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The item's name: a user or organization name, or a repository ID such as 'namespace/name'."
+        },
+        "type": {
+          "type": "string",
+          "description": "The kind of item to watch: 'bucket', 'dataset', 'model', 'org', 'space' or 'user'."
+        }
+      },
+      "type": "object",
+      "required": [
+        "type",
+        "name"
+      ]
+    }
+  },
+  "provider": {
+    "properties": {
+      "token": {
+        "type": "string",
+        "description": "Hugging Face API token. Overridable per resource. Falls back to the HUGGINGFACE_TOKEN environment variable.",
+        "defaultInfo": {
+          "environment": [
+            "HUGGINGFACE_TOKEN"
+          ]
+        },
+        "secret": true
+      }
+    },
+    "inputProperties": {
+      "token": {
+        "type": "string",
+        "description": "Hugging Face API token. Overridable per resource. Falls back to the HUGGINGFACE_TOKEN environment variable.",
+        "defaultInfo": {
+          "environment": [
+            "HUGGINGFACE_TOKEN"
+          ]
+        },
+        "secret": true
+      }
+    }
+  },
+  "resources": {
+    "huggingface:index:Bucket": {
+      "description": "A Hugging Face Hub storage bucket. The resource ID is 'namespace/name'; import with it (for example: pulumi import huggingface:index:Bucket b acme/artifacts). The documented API has no bucket settings update, so changing visibility, region, resource group or name REPLACES the bucket and deletes its files. Region and resource group are not returned by the API and stay as configured.",
+      "properties": {
+        "bucketId": {
+          "type": "string",
+          "description": "The bucket identifier: 'namespace/name'."
+        },
+        "name": {
+          "type": "string",
+          "description": "The bucket name. Defaults to the Pulumi resource name. Changing it replaces the bucket.",
+          "replaceOnChanges": true
+        },
+        "namespace": {
+          "type": "string",
+          "description": "The owning user or organization. Defaults to the token's user. Changing it replaces the bucket.",
+          "replaceOnChanges": true
+        },
+        "private": {
+          "type": "boolean",
+          "description": "Whether the bucket is private. Defaults to false. Changing it replaces the bucket and deletes its files.",
+          "replaceOnChanges": true
+        },
+        "region": {
+          "type": "string",
+          "description": "Where the data is stored ('us' or 'eu'). Create-only; changing it replaces the bucket.",
+          "replaceOnChanges": true
+        },
+        "resourceGroupId": {
+          "type": "string",
+          "description": "Enterprise resource group ID. Create-only; changing it replaces the bucket.",
+          "replaceOnChanges": true
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        },
+        "url": {
+          "type": "string",
+          "description": "The web URL of the bucket."
+        }
+      },
+      "required": [
+        "bucketId",
+        "url"
+      ],
+      "inputProperties": {
+        "name": {
+          "type": "string",
+          "description": "The bucket name. Defaults to the Pulumi resource name. Changing it replaces the bucket.",
+          "replaceOnChanges": true
+        },
+        "namespace": {
+          "type": "string",
+          "description": "The owning user or organization. Defaults to the token's user. Changing it replaces the bucket.",
+          "replaceOnChanges": true
+        },
+        "private": {
+          "type": "boolean",
+          "description": "Whether the bucket is private. Defaults to false. Changing it replaces the bucket and deletes its files.",
+          "replaceOnChanges": true
+        },
+        "region": {
+          "type": "string",
+          "description": "Where the data is stored ('us' or 'eu'). Create-only; changing it replaces the bucket.",
+          "replaceOnChanges": true
+        },
+        "resourceGroupId": {
+          "type": "string",
+          "description": "Enterprise resource group ID. Create-only; changing it replaces the bucket.",
+          "replaceOnChanges": true
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        }
+      }
+    },
+    "huggingface:index:Collection": {
+      "description": "A Hugging Face Hub collection. The resource ID is the collection slug ('namespace/title-slug-hash'); import with it (for example: pulumi import huggingface:index:Collection c ns/recent-models-64f9a55bb3115b4f513ec026). Items belong to CollectionItem resources.",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Plain-text description of the collection."
+        },
+        "effectiveTheme": {
+          "type": "string",
+          "description": "The theme the Hub reports for the collection."
+        },
+        "namespace": {
+          "type": "string",
+          "description": "The owning user or organization. Defaults to the token's user. Changing it replaces the collection.",
+          "replaceOnChanges": true
+        },
+        "private": {
+          "type": "boolean",
+          "description": "Whether the collection is private. Defaults to false."
+        },
+        "slug": {
+          "type": "string",
+          "description": "The collection slug: 'namespace/title-slug-hash'."
+        },
+        "theme": {
+          "type": "string",
+          "description": "The collection's colour theme. Unmanaged while unset (the Hub picks one)."
+        },
+        "title": {
+          "type": "string",
+          "description": "The collection title."
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        },
+        "url": {
+          "type": "string",
+          "description": "The web URL of the collection."
+        }
+      },
+      "required": [
+        "title",
+        "slug",
+        "url",
+        "effectiveTheme"
+      ],
+      "inputProperties": {
+        "description": {
+          "type": "string",
+          "description": "Plain-text description of the collection."
+        },
+        "namespace": {
+          "type": "string",
+          "description": "The owning user or organization. Defaults to the token's user. Changing it replaces the collection.",
+          "replaceOnChanges": true
+        },
+        "private": {
+          "type": "boolean",
+          "description": "Whether the collection is private. Defaults to false."
+        },
+        "theme": {
+          "type": "string",
+          "description": "The collection's colour theme. Unmanaged while unset (the Hub picks one)."
+        },
+        "title": {
+          "type": "string",
+          "description": "The collection title."
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        }
+      },
+      "requiredInputs": [
+        "title"
+      ]
+    },
+    "huggingface:index:CollectionItem": {
+      "description": "An item of a Hugging Face Hub collection. The resource ID is '<collection slug>/<item object ID>' (for example: pulumi import huggingface:index:CollectionItem i ns/recent-models-64f9a55bb3115b4f513ec026/64fa00aa11bb22cc33dd44ee). The object ID is shown by getCollection.",
+      "properties": {
+        "collectionSlug": {
+          "type": "string",
+          "description": "The collection slug. Changing it replaces the item.",
+          "replaceOnChanges": true
+        },
+        "itemId": {
+          "type": "string",
+          "description": "The repository ID ('namespace/name'), paper ID or collection slug. Changing it replaces the item.",
+          "replaceOnChanges": true
+        },
+        "itemObjectId": {
+          "type": "string",
+          "description": "The item's database ID."
+        },
+        "itemType": {
+          "type": "string",
+          "description": "The item type: 'model', 'dataset', 'space', 'paper', 'collection' or 'bucket'. Changing it replaces the item.",
+          "replaceOnChanges": true
+        },
+        "note": {
+          "type": "string",
+          "description": "A plain-text note shown with the item. Unmanaged while unset."
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        }
+      },
+      "required": [
+        "collectionSlug",
+        "itemId",
+        "itemType",
+        "itemObjectId"
+      ],
+      "inputProperties": {
+        "collectionSlug": {
+          "type": "string",
+          "description": "The collection slug. Changing it replaces the item.",
+          "replaceOnChanges": true
+        },
+        "itemId": {
+          "type": "string",
+          "description": "The repository ID ('namespace/name'), paper ID or collection slug. Changing it replaces the item.",
+          "replaceOnChanges": true
+        },
+        "itemType": {
+          "type": "string",
+          "description": "The item type: 'model', 'dataset', 'space', 'paper', 'collection' or 'bucket'. Changing it replaces the item.",
+          "replaceOnChanges": true
+        },
+        "note": {
+          "type": "string",
+          "description": "A plain-text note shown with the item. Unmanaged while unset."
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        }
+      },
+      "requiredInputs": [
+        "collectionSlug",
+        "itemId",
+        "itemType"
+      ]
+    },
+    "huggingface:index:InferenceEndpoint": {
+      "description": "A Hugging Face Inference Endpoint — a dedicated, auto-scalable compute instance that serves a model for production inference traffic. Import with the ID 'namespace/name'.",
+      "properties": {
+        "accelerator": {
+          "type": "string",
+          "description": "Hardware accelerator type: 'cpu', 'gpu', or 'inf2' (AWS Inferentia 2)."
+        },
+        "accountId": {
+          "type": "string",
+          "description": "AWS account ID for AWS PrivateLink on a private endpoint. Changing it replaces the endpoint.",
+          "replaceOnChanges": true
+        },
+        "customImageEnvVars": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Environment variables for the container (model.env)."
+        },
+        "customImageHealthRoute": {
+          "type": "string"
+        },
+        "customImagePort": {
+          "type": "integer"
+        },
+        "customImageUrl": {
+          "type": "string"
+        },
+        "endpointType": {
+          "type": "string",
+          "description": "Access type: 'public', 'authenticated' (default), or 'private'. The legacy 'protected' type is no longer supported by the API."
+        },
+        "instanceSize": {
+          "type": "string",
+          "description": "Instance size multiplier: 'x1', 'x2', 'x4', 'x8'."
+        },
+        "instanceType": {
+          "type": "string",
+          "description": "Instance family (e.g. 'nvidia-a10g', 'nvidia-h100', 'intel-icl')."
+        },
+        "maxReplica": {
+          "type": "integer"
+        },
+        "minReplica": {
+          "type": "integer"
+        },
+        "modelFramework": {
+          "type": "string",
+          "description": "The serving framework (e.g. 'pytorch', 'custom'). Use 'pytorch' for Transformers, 'custom' for TGI/TEI/vLLM."
+        },
+        "modelRepository": {
+          "type": "string",
+          "description": "The Hugging Face model repository ID (e.g. 'meta-llama/Llama-3-8B-Instruct')."
+        },
+        "modelRevision": {
+          "type": "string"
+        },
+        "modelTask": {
+          "type": "string",
+          "description": "The inference task type (e.g. 'text-generation', 'feature-extraction', 'sentence-similarity')."
+        },
+        "namespace": {
+          "type": "string",
+          "replaceOnChanges": true
+        },
+        "privateLinkRegion": {
+          "type": "string",
+          "description": "AWS region of the PrivateLink entry point ('us-east-1' or 'eu-west-1'). Defaults to region.",
+          "replaceOnChanges": true
+        },
+        "region": {
+          "type": "string",
+          "description": "Cloud region (e.g. 'us-east-1' for AWS, 'eastus' for Azure, 'us-central1' for GCP)."
+        },
+        "scaleToZeroTimeout": {
+          "type": "integer",
+          "description": "Idle minutes before scaling to zero when minReplica is 0. The API default is 15."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current lifecycle state: 'pending', 'initializing', 'updating', 'running', 'paused', 'scaledToZero', 'failed', 'updateFailed'."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Labels attached to the endpoint. Unmanaged while unset; removing tags that were set clears them."
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        },
+        "url": {
+          "type": "string",
+          "description": "The HTTPS URL to call for inference. Set once the endpoint is running."
+        },
+        "vendor": {
+          "type": "string",
+          "description": "Cloud vendor: 'aws', 'azure', or 'gcp'."
+        }
+      },
+      "required": [
+        "modelRepository",
+        "modelFramework",
+        "modelTask",
+        "vendor",
+        "region",
+        "accelerator",
+        "instanceType",
+        "instanceSize",
+        "url",
+        "status"
+      ],
+      "inputProperties": {
+        "accelerator": {
+          "type": "string",
+          "description": "Hardware accelerator type: 'cpu', 'gpu', or 'inf2' (AWS Inferentia 2)."
+        },
+        "accountId": {
+          "type": "string",
+          "description": "AWS account ID for AWS PrivateLink on a private endpoint. Changing it replaces the endpoint.",
+          "replaceOnChanges": true
+        },
+        "customImageEnvVars": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Environment variables for the container (model.env)."
+        },
+        "customImageHealthRoute": {
+          "type": "string"
+        },
+        "customImagePort": {
+          "type": "integer"
+        },
+        "customImageUrl": {
+          "type": "string"
+        },
+        "endpointType": {
+          "type": "string",
+          "description": "Access type: 'public', 'authenticated' (default), or 'private'. The legacy 'protected' type is no longer supported by the API."
+        },
+        "instanceSize": {
+          "type": "string",
+          "description": "Instance size multiplier: 'x1', 'x2', 'x4', 'x8'."
+        },
+        "instanceType": {
+          "type": "string",
+          "description": "Instance family (e.g. 'nvidia-a10g', 'nvidia-h100', 'intel-icl')."
+        },
+        "maxReplica": {
+          "type": "integer"
+        },
+        "minReplica": {
+          "type": "integer"
+        },
+        "modelFramework": {
+          "type": "string",
+          "description": "The serving framework (e.g. 'pytorch', 'custom'). Use 'pytorch' for Transformers, 'custom' for TGI/TEI/vLLM."
+        },
+        "modelRepository": {
+          "type": "string",
+          "description": "The Hugging Face model repository ID (e.g. 'meta-llama/Llama-3-8B-Instruct')."
+        },
+        "modelRevision": {
+          "type": "string"
+        },
+        "modelTask": {
+          "type": "string",
+          "description": "The inference task type (e.g. 'text-generation', 'feature-extraction', 'sentence-similarity')."
+        },
+        "namespace": {
+          "type": "string",
+          "replaceOnChanges": true
+        },
+        "privateLinkRegion": {
+          "type": "string",
+          "description": "AWS region of the PrivateLink entry point ('us-east-1' or 'eu-west-1'). Defaults to region.",
+          "replaceOnChanges": true
+        },
+        "region": {
+          "type": "string",
+          "description": "Cloud region (e.g. 'us-east-1' for AWS, 'eastus' for Azure, 'us-central1' for GCP)."
+        },
+        "scaleToZeroTimeout": {
+          "type": "integer",
+          "description": "Idle minutes before scaling to zero when minReplica is 0. The API default is 15."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Labels attached to the endpoint. Unmanaged while unset; removing tags that were set clears them."
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        },
+        "vendor": {
+          "type": "string",
+          "description": "Cloud vendor: 'aws', 'azure', or 'gcp'."
+        }
+      },
+      "requiredInputs": [
+        "modelRepository",
+        "modelFramework",
+        "modelTask",
+        "vendor",
+        "region",
+        "accelerator",
+        "instanceType",
+        "instanceSize"
+      ]
+    },
+    "huggingface:index:Repository": {
+      "description": "A Hugging Face Hub repository (model or dataset). Manages the repository container and visibility — not the files within it. Import with the ID 'namespace/name' for a model or 'datasets/namespace/name' for a dataset.",
+      "properties": {
+        "gated": {
+          "type": "string",
+          "description": "Gated access: 'off' (default), 'auto' (requests approved automatically) or 'manual' (a maintainer approves each request)."
+        },
+        "namespace": {
+          "type": "string",
+          "description": "The owning user or organization. Defaults to the token's user. Changing it replaces the repository.",
+          "replaceOnChanges": true
+        },
+        "private": {
+          "type": "boolean",
+          "description": "Whether the repository is private. Defaults to false (public)."
+        },
+        "repoId": {
+          "type": "string",
+          "description": "The canonical repository identifier: 'namespace/name'."
+        },
+        "repoType": {
+          "type": "string",
+          "description": "The repository type: 'model' (default) or 'dataset'. Changing it replaces the repository.",
+          "replaceOnChanges": true
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        },
+        "url": {
+          "type": "string",
+          "description": "The web URL of the repository."
+        }
+      },
+      "required": [
+        "repoId",
+        "url"
+      ],
+      "inputProperties": {
+        "gated": {
+          "type": "string",
+          "description": "Gated access: 'off' (default), 'auto' (requests approved automatically) or 'manual' (a maintainer approves each request)."
+        },
+        "namespace": {
+          "type": "string",
+          "description": "The owning user or organization. Defaults to the token's user. Changing it replaces the repository.",
+          "replaceOnChanges": true
+        },
+        "private": {
+          "type": "boolean",
+          "description": "Whether the repository is private. Defaults to false (public)."
+        },
+        "repoType": {
+          "type": "string",
+          "description": "The repository type: 'model' (default) or 'dataset'. Changing it replaces the repository.",
+          "replaceOnChanges": true
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        }
+      }
+    },
+    "huggingface:index:RepositoryBranch": {
+      "description": "A git branch of a Hugging Face Hub repository. The resource ID is '<models|datasets|spaces>/<namespace>/<name>@<branch>' (for example: pulumi import huggingface:index:RepositoryBranch b models/acme/m@dev; without a prefix the repository is a model). A branch has no mutable property, so any change replaces it.",
+      "properties": {
+        "branch": {
+          "type": "string",
+          "description": "The branch name. Changing it replaces the branch.",
+          "replaceOnChanges": true
+        },
+        "repoId": {
+          "type": "string",
+          "description": "The repository, 'namespace/name'. Changing it replaces the branch.",
+          "replaceOnChanges": true
+        },
+        "repoType": {
+          "type": "string",
+          "description": "The repository type: 'model' (default), 'dataset' or 'space'. Changing it replaces the branch.",
+          "replaceOnChanges": true
+        },
+        "startingPoint": {
+          "type": "string",
+          "description": "The revision (branch, tag or commit SHA) the branch is created from; defaults to the default branch head. Create-only and not readable: after an import it is unset, and changing it replaces the branch."
+        },
+        "targetCommit": {
+          "type": "string",
+          "description": "The commit the branch pointed at when last read."
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        }
+      },
+      "required": [
+        "repoId",
+        "branch",
+        "targetCommit"
+      ],
+      "inputProperties": {
+        "branch": {
+          "type": "string",
+          "description": "The branch name. Changing it replaces the branch.",
+          "replaceOnChanges": true
+        },
+        "repoId": {
+          "type": "string",
+          "description": "The repository, 'namespace/name'. Changing it replaces the branch.",
+          "replaceOnChanges": true
+        },
+        "repoType": {
+          "type": "string",
+          "description": "The repository type: 'model' (default), 'dataset' or 'space'. Changing it replaces the branch.",
+          "replaceOnChanges": true
+        },
+        "startingPoint": {
+          "type": "string",
+          "description": "The revision (branch, tag or commit SHA) the branch is created from; defaults to the default branch head. Create-only and not readable: after an import it is unset, and changing it replaces the branch."
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        }
+      },
+      "requiredInputs": [
+        "repoId",
+        "branch"
+      ]
+    },
+    "huggingface:index:RepositoryTag": {
+      "description": "A git tag of a Hugging Face Hub repository. The resource ID is '<models|datasets|spaces>/<namespace>/<name>@<tag>' (for example: pulumi import huggingface:index:RepositoryTag t models/acme/m@v1.0; without a prefix the repository is a model). A tag has no mutable property, so any change replaces it.",
+      "properties": {
+        "message": {
+          "type": "string",
+          "description": "The tag message. Create-only and not readable; changing it replaces the tag."
+        },
+        "repoId": {
+          "type": "string",
+          "description": "The repository, 'namespace/name'. Changing it replaces the tag.",
+          "replaceOnChanges": true
+        },
+        "repoType": {
+          "type": "string",
+          "description": "The repository type: 'model' (default), 'dataset' or 'space'. Changing it replaces the tag.",
+          "replaceOnChanges": true
+        },
+        "revision": {
+          "type": "string",
+          "description": "The branch, tag or commit SHA to tag; defaults to 'main'. Create-only and not readable: after an import it is unset, and changing it replaces the tag."
+        },
+        "tag": {
+          "type": "string",
+          "description": "The tag name. Changing it replaces the tag.",
+          "replaceOnChanges": true
+        },
+        "targetCommit": {
+          "type": "string",
+          "description": "The commit the tag pointed at when last read."
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        }
+      },
+      "required": [
+        "repoId",
+        "tag",
+        "targetCommit"
+      ],
+      "inputProperties": {
+        "message": {
+          "type": "string",
+          "description": "The tag message. Create-only and not readable; changing it replaces the tag."
+        },
+        "repoId": {
+          "type": "string",
+          "description": "The repository, 'namespace/name'. Changing it replaces the tag.",
+          "replaceOnChanges": true
+        },
+        "repoType": {
+          "type": "string",
+          "description": "The repository type: 'model' (default), 'dataset' or 'space'. Changing it replaces the tag.",
+          "replaceOnChanges": true
+        },
+        "revision": {
+          "type": "string",
+          "description": "The branch, tag or commit SHA to tag; defaults to 'main'. Create-only and not readable: after an import it is unset, and changing it replaces the tag."
+        },
+        "tag": {
+          "type": "string",
+          "description": "The tag name. Changing it replaces the tag.",
+          "replaceOnChanges": true
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        }
+      },
+      "requiredInputs": [
+        "repoId",
+        "tag"
+      ]
+    },
+    "huggingface:index:Space": {
+      "description": "A Hugging Face Space — an interactive ML demo or application hosted on Hugging Face infrastructure, backed by Gradio, Docker, or static HTML. Import with the ID 'namespace/name'; secret values cannot be imported.",
+      "properties": {
+        "hardware": {
+          "type": "string",
+          "description": "The compute tier (e.g. 'cpu-basic', 't4-small', 'a10g-small'). Defaults to 'cpu-basic'."
+        },
+        "namespace": {
+          "type": "string",
+          "replaceOnChanges": true
+        },
+        "private": {
+          "type": "boolean"
+        },
+        "sdk": {
+          "type": "string",
+          "description": "The frontend framework: 'gradio', 'streamlit', 'docker', or 'static'. Changing it replaces the Space.",
+          "replaceOnChanges": true
+        },
+        "secrets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/types/huggingface:index:SpaceSecretInput"
+          },
+          "description": "Secret environment variables injected at runtime. Values are write-only. Keys removed from this list are deleted from the Space."
+        },
+        "sleepTimeSeconds": {
+          "type": "integer",
+          "description": "Idle seconds before the Space sleeps (upgraded hardware only). Unmanaged when unset."
+        },
+        "spaceId": {
+          "type": "string",
+          "description": "The canonical Space identifier: 'namespace/name'."
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        },
+        "url": {
+          "type": "string",
+          "description": "The public URL of the Space."
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/types/huggingface:index:SpaceVariableInput"
+          },
+          "description": "Non-secret environment variables for the Space. Keys removed from this list are deleted from the Space."
+        }
+      },
+      "required": [
+        "sdk",
+        "spaceId",
+        "url"
+      ],
+      "inputProperties": {
+        "hardware": {
+          "type": "string",
+          "description": "The compute tier (e.g. 'cpu-basic', 't4-small', 'a10g-small'). Defaults to 'cpu-basic'."
+        },
+        "namespace": {
+          "type": "string",
+          "replaceOnChanges": true
+        },
+        "private": {
+          "type": "boolean"
+        },
+        "sdk": {
+          "type": "string",
+          "description": "The frontend framework: 'gradio', 'streamlit', 'docker', or 'static'. Changing it replaces the Space.",
+          "replaceOnChanges": true
+        },
+        "secrets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/types/huggingface:index:SpaceSecretInput"
+          },
+          "description": "Secret environment variables injected at runtime. Values are write-only. Keys removed from this list are deleted from the Space."
+        },
+        "sleepTimeSeconds": {
+          "type": "integer",
+          "description": "Idle seconds before the Space sleeps (upgraded hardware only). Unmanaged when unset."
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/types/huggingface:index:SpaceVariableInput"
+          },
+          "description": "Non-secret environment variables for the Space. Keys removed from this list are deleted from the Space."
+        }
+      },
+      "requiredInputs": [
+        "sdk"
+      ]
+    },
+    "huggingface:index:Webhook": {
+      "description": "A Hugging Face Hub webhook that sends events for watched items to a URL. The resource ID is the webhook ID; import with it (for example: pulumi import huggingface:index:Webhook w 64f9a55bb3115b4f513ec026). The secret is write-only and cannot be imported: set it again after import. Webhooks that trigger a Job are not supported yet.",
+      "properties": {
+        "disabled": {
+          "type": "boolean",
+          "description": "Whether the webhook is disabled. Defaults to false (enabled)."
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Event domains to watch: 'repo' and/or 'discussion'. When unset the Hub watches both and the value is not managed."
+        },
+        "effectiveDomains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The domains the Hub reports as watched."
+        },
+        "secret": {
+          "type": "string",
+          "description": "Secret used to sign payloads. Write-only: the API never returns it, so it is kept from state and cannot be imported. Removing it from the program does not clear it on the Hub.",
+          "secret": true
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL that receives the webhook payloads."
+        },
+        "watched": {
+          "type": "array",
+          "items": {
+            "$ref": "#/types/huggingface:index:WebhookWatchedItem"
+          },
+          "description": "The items the webhook watches."
+        }
+      },
+      "required": [
+        "url",
+        "watched",
+        "effectiveDomains"
+      ],
+      "inputProperties": {
+        "disabled": {
+          "type": "boolean",
+          "description": "Whether the webhook is disabled. Defaults to false (enabled)."
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Event domains to watch: 'repo' and/or 'discussion'. When unset the Hub watches both and the value is not managed."
+        },
+        "secret": {
+          "type": "string",
+          "description": "Secret used to sign payloads. Write-only: the API never returns it, so it is kept from state and cannot be imported. Removing it from the program does not clear it on the Hub.",
+          "secret": true
+        },
+        "token": {
+          "type": "string",
+          "secret": true
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL that receives the webhook payloads."
+        },
+        "watched": {
+          "type": "array",
+          "items": {
+            "$ref": "#/types/huggingface:index:WebhookWatchedItem"
+          },
+          "description": "The items the webhook watches."
+        }
+      },
+      "requiredInputs": [
+        "url",
+        "watched"
+      ]
+    }
+  },
+  "functions": {
+    "huggingface:index:getBucket": {
+      "description": "Look up a Hugging Face Hub storage bucket by namespace and name.",
+      "inputs": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The bucket name."
+          },
+          "namespace": {
+            "type": "string",
+            "description": "The owning user or organization. Defaults to the token's user."
+          },
+          "token": {
+            "type": "string",
+            "description": "Hugging Face API token. Falls back to the provider token.",
+            "secret": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ]
+      },
+      "outputs": {
+        "properties": {
+          "bucketId": {
+            "description": "The bucket identifier: 'namespace/name'.",
+            "type": "string"
+          },
+          "createdAt": {
+            "description": "When the bucket was created.",
+            "type": "string"
+          },
+          "name": {
+            "description": "The bucket name.",
+            "type": "string"
+          },
+          "namespace": {
+            "description": "The owning user or organization.",
+            "type": "string"
+          },
+          "private": {
+            "description": "Whether the bucket is private.",
+            "type": "boolean"
+          },
+          "size": {
+            "description": "Total size in bytes.",
+            "type": "integer"
+          },
+          "totalFiles": {
+            "description": "Number of files.",
+            "type": "integer"
+          },
+          "url": {
+            "description": "The web URL of the bucket.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bucketId",
+          "namespace",
+          "name",
+          "private",
+          "createdAt",
+          "size",
+          "totalFiles",
+          "url"
+        ],
+        "type": "object"
+      }
+    },
+    "huggingface:index:getCollection": {
+      "description": "Look up a Hugging Face Hub collection and its items by slug.",
+      "inputs": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "description": "The collection slug: 'namespace/title-slug-hash'."
+          },
+          "token": {
+            "type": "string",
+            "description": "Hugging Face API token. Falls back to the provider token.",
+            "secret": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug"
+        ]
+      },
+      "outputs": {
+        "properties": {
+          "description": {
+            "description": "The description (empty when unset).",
+            "type": "string"
+          },
+          "items": {
+            "description": "The items in the collection.",
+            "items": {
+              "$ref": "#/types/huggingface:index:CollectionItemSummary"
+            },
+            "type": "array"
+          },
+          "private": {
+            "description": "Whether the collection is private.",
+            "type": "boolean"
+          },
+          "slug": {
+            "description": "The collection slug.",
+            "type": "string"
+          },
+          "theme": {
+            "description": "The colour theme.",
+            "type": "string"
+          },
+          "title": {
+            "description": "The collection title.",
+            "type": "string"
+          },
+          "url": {
+            "description": "The web URL of the collection.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "title",
+          "description",
+          "private",
+          "theme",
+          "url",
+          "items"
+        ],
+        "type": "object"
+      }
+    },
+    "huggingface:index:getCollectionItem": {
+      "description": "Look up one item of a Hugging Face Hub collection by its repository, paper or collection ID and type.",
+      "inputs": {
+        "properties": {
+          "collectionSlug": {
+            "type": "string",
+            "description": "The collection slug."
+          },
+          "itemId": {
+            "type": "string",
+            "description": "The repository ID, paper ID or collection slug of the item."
+          },
+          "itemType": {
+            "type": "string",
+            "description": "The item type."
+          },
+          "token": {
+            "type": "string",
+            "description": "Hugging Face API token. Falls back to the provider token.",
+            "secret": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "collectionSlug",
+          "itemId",
+          "itemType"
+        ]
+      },
+      "outputs": {
+        "properties": {
+          "collectionSlug": {
+            "description": "The collection slug.",
+            "type": "string"
+          },
+          "itemId": {
+            "description": "The repository ID, paper ID or collection slug.",
+            "type": "string"
+          },
+          "itemObjectId": {
+            "description": "The item's database ID.",
+            "type": "string"
+          },
+          "itemType": {
+            "description": "The item type.",
+            "type": "string"
+          },
+          "note": {
+            "description": "The note on the item, when set.",
+            "type": "string"
+          },
+          "position": {
+            "description": "The item's position.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "collectionSlug",
+          "itemObjectId",
+          "itemId",
+          "itemType",
+          "position"
+        ],
+        "type": "object"
+      }
+    },
+    "huggingface:index:getInferenceEndpoint": {
+      "description": "Look up a Hugging Face Inference Endpoint by namespace and name.",
+      "inputs": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The endpoint name."
+          },
+          "namespace": {
+            "type": "string",
+            "description": "The owning user or organization. Defaults to the token's user."
+          },
+          "token": {
+            "type": "string",
+            "description": "Hugging Face API token. Falls back to the provider token.",
+            "secret": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ]
+      },
+      "outputs": {
+        "properties": {
+          "accelerator": {
+            "description": "The accelerator type.",
+            "type": "string"
+          },
+          "endpointType": {
+            "description": "Access type: 'public', 'authenticated' or 'private'.",
+            "type": "string"
+          },
+          "instanceSize": {
+            "description": "The instance size.",
+            "type": "string"
+          },
+          "instanceType": {
+            "description": "The instance family.",
+            "type": "string"
+          },
+          "maxReplica": {
+            "description": "Maximum replicas.",
+            "type": "integer"
+          },
+          "minReplica": {
+            "description": "Minimum replicas.",
+            "type": "integer"
+          },
+          "modelFramework": {
+            "description": "The serving framework.",
+            "type": "string"
+          },
+          "modelRepository": {
+            "description": "The model repository being served.",
+            "type": "string"
+          },
+          "modelRevision": {
+            "description": "The pinned model revision, when set.",
+            "type": "string"
+          },
+          "modelTask": {
+            "description": "The inference task.",
+            "type": "string"
+          },
+          "name": {
+            "description": "The endpoint name.",
+            "type": "string"
+          },
+          "namespace": {
+            "description": "The owning user or organization.",
+            "type": "string"
+          },
+          "region": {
+            "description": "The cloud region.",
+            "type": "string"
+          },
+          "scaleToZeroTimeout": {
+            "description": "Idle minutes before scale to zero, when set.",
+            "type": "integer"
+          },
+          "status": {
+            "description": "Lifecycle state, for example 'running' or 'scaledToZero'.",
+            "type": "string"
+          },
+          "statusMessage": {
+            "description": "The status message reported by the API.",
+            "type": "string"
+          },
+          "tags": {
+            "description": "Labels attached to the endpoint.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "url": {
+            "description": "The HTTPS URL for inference; empty until the endpoint is running.",
+            "type": "string"
+          },
+          "vendor": {
+            "description": "The cloud vendor.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "namespace",
+          "endpointType",
+          "status",
+          "statusMessage",
+          "url",
+          "modelRepository",
+          "modelFramework",
+          "modelTask",
+          "vendor",
+          "region",
+          "accelerator",
+          "instanceType",
+          "instanceSize",
+          "minReplica",
+          "maxReplica",
+          "tags"
+        ],
+        "type": "object"
+      }
+    },
+    "huggingface:index:getRepository": {
+      "description": "Look up a Hugging Face Hub model or dataset repository by ID.",
+      "inputs": {
+        "properties": {
+          "repoId": {
+            "type": "string",
+            "description": "The repository, 'namespace/name'."
+          },
+          "repoType": {
+            "type": "string",
+            "description": "The repository type: 'model' (default) or 'dataset'."
+          },
+          "token": {
+            "type": "string",
+            "description": "Hugging Face API token. Falls back to the provider token.",
+            "secret": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "repoId"
+        ]
+      },
+      "outputs": {
+        "properties": {
+          "gated": {
+            "description": "Gated access: 'off', 'auto' or 'manual'.",
+            "type": "string"
+          },
+          "private": {
+            "description": "Whether the repository is private.",
+            "type": "boolean"
+          },
+          "repoId": {
+            "description": "The repository, 'namespace/name'.",
+            "type": "string"
+          },
+          "repoType": {
+            "description": "The repository type.",
+            "type": "string"
+          },
+          "url": {
+            "description": "The web URL of the repository.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repoId",
+          "repoType",
+          "private",
+          "gated",
+          "url"
+        ],
+        "type": "object"
+      }
+    },
+    "huggingface:index:getRepositoryBranch": {
+      "description": "Look up a branch of a Hugging Face Hub repository through its refs.",
+      "inputs": {
+        "properties": {
+          "branch": {
+            "type": "string",
+            "description": "The branch name."
+          },
+          "repoId": {
+            "type": "string",
+            "description": "The repository, 'namespace/name'."
+          },
+          "repoType": {
+            "type": "string",
+            "description": "The repository type: 'model' (default), 'dataset' or 'space'."
+          },
+          "token": {
+            "type": "string",
+            "description": "Hugging Face API token. Falls back to the provider token.",
+            "secret": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "repoId",
+          "branch"
+        ]
+      },
+      "outputs": {
+        "properties": {
+          "branch": {
+            "description": "The branch name.",
+            "type": "string"
+          },
+          "ref": {
+            "description": "The full git ref, for example 'refs/heads/main'.",
+            "type": "string"
+          },
+          "repoId": {
+            "description": "The repository.",
+            "type": "string"
+          },
+          "repoType": {
+            "description": "The repository type.",
+            "type": "string"
+          },
+          "targetCommit": {
+            "description": "The commit the branch points at.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repoId",
+          "repoType",
+          "branch",
+          "ref",
+          "targetCommit"
+        ],
+        "type": "object"
+      }
+    },
+    "huggingface:index:getRepositoryTag": {
+      "description": "Look up a tag of a Hugging Face Hub repository through its refs.",
+      "inputs": {
+        "properties": {
+          "repoId": {
+            "type": "string",
+            "description": "The repository, 'namespace/name'."
+          },
+          "repoType": {
+            "type": "string",
+            "description": "The repository type: 'model' (default), 'dataset' or 'space'."
+          },
+          "tag": {
+            "type": "string",
+            "description": "The tag name."
+          },
+          "token": {
+            "type": "string",
+            "description": "Hugging Face API token. Falls back to the provider token.",
+            "secret": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "repoId",
+          "tag"
+        ]
+      },
+      "outputs": {
+        "properties": {
+          "ref": {
+            "description": "The full git ref, for example 'refs/tags/v1.0'.",
+            "type": "string"
+          },
+          "repoId": {
+            "description": "The repository.",
+            "type": "string"
+          },
+          "repoType": {
+            "description": "The repository type.",
+            "type": "string"
+          },
+          "tag": {
+            "description": "The tag name.",
+            "type": "string"
+          },
+          "targetCommit": {
+            "description": "The commit the tag points at.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repoId",
+          "repoType",
+          "tag",
+          "ref",
+          "targetCommit"
+        ],
+        "type": "object"
+      }
+    },
+    "huggingface:index:getSpace": {
+      "description": "Look up a Hugging Face Space by ID. Secret values are not supported by the Hugging Face API: only the secret names are returned.",
+      "inputs": {
+        "properties": {
+          "spaceId": {
+            "type": "string",
+            "description": "The Space, 'namespace/name'."
+          },
+          "token": {
+            "type": "string",
+            "description": "Hugging Face API token. Falls back to the provider token.",
+            "secret": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "spaceId"
+        ]
+      },
+      "outputs": {
+        "properties": {
+          "hardware": {
+            "description": "The hardware flavor requested for the Space, or the current one when none is pending.",
+            "type": "string"
+          },
+          "private": {
+            "description": "Whether the Space is private.",
+            "type": "boolean"
+          },
+          "sdk": {
+            "description": "The frontend framework.",
+            "type": "string"
+          },
+          "secretKeys": {
+            "description": "The names of the Space secrets. The values are not supported by the Hugging Face API.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sleepTimeSeconds": {
+            "description": "Idle seconds before the Space sleeps, when configured.",
+            "type": "integer"
+          },
+          "spaceId": {
+            "description": "The Space, 'namespace/name'.",
+            "type": "string"
+          },
+          "stage": {
+            "description": "The runtime stage, for example 'RUNNING' or 'SLEEPING'.",
+            "type": "string"
+          },
+          "url": {
+            "description": "The web URL of the Space.",
+            "type": "string"
+          },
+          "variables": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "The Space variables (non-secret), by name.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "spaceId",
+          "sdk",
+          "private",
+          "hardware",
+          "stage",
+          "url",
+          "variables",
+          "secretKeys"
+        ],
+        "type": "object"
+      }
+    },
+    "huggingface:index:getWebhook": {
+      "description": "Look up a Hugging Face Hub webhook by ID. The webhook secret is write-only and is not part of the result.",
+      "inputs": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Hugging Face API token. Falls back to the provider token.",
+            "secret": true
+          },
+          "webhookId": {
+            "type": "string",
+            "description": "The webhook ID."
+          }
+        },
+        "type": "object",
+        "required": [
+          "webhookId"
+        ]
+      },
+      "outputs": {
+        "properties": {
+          "disabled": {
+            "description": "Whether the webhook is disabled.",
+            "type": "boolean"
+          },
+          "domains": {
+            "description": "The watched event domains.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "url": {
+            "description": "The URL that receives the payloads.",
+            "type": "string"
+          },
+          "watched": {
+            "description": "The watched items.",
+            "items": {
+              "$ref": "#/types/huggingface:index:WebhookWatchedItem"
+            },
+            "type": "array"
+          },
+          "webhookId": {
+            "description": "The webhook ID.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "webhookId",
+          "url",
+          "watched",
+          "domains",
+          "disabled"
+        ],
+        "type": "object"
+      }
+    },
+    "huggingface:index:getWhoami": {
+      "description": "Look up the Hugging Face user (or service identity) behind the API token, and the organizations it belongs to.",
+      "inputs": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Hugging Face API token. Falls back to the provider token.",
+            "secret": true
+          }
+        },
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "fullName": {
+            "description": "The display name.",
+            "type": "string"
+          },
+          "name": {
+            "description": "The user name (the default namespace for new resources).",
+            "type": "string"
+          },
+          "orgs": {
+            "description": "Names of the organizations the identity belongs to.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": {
+            "description": "The identity type, for example 'user'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "fullName",
+          "orgs"
+        ],
+        "type": "object"
+      }
+    },
+    "huggingface:index:listInferenceEndpoints": {
+      "description": "List the Hugging Face Inference Endpoints of a namespace.",
+      "inputs": {
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "The user or organization to list. Defaults to the token's user."
+          },
+          "token": {
+            "type": "string",
+            "description": "Hugging Face API token. Falls back to the provider token.",
+            "secret": true
+          }
+        },
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "endpoints": {
+            "description": "The endpoints in the namespace.",
+            "items": {
+              "$ref": "#/types/huggingface:index:InferenceEndpointSummary"
+            },
+            "type": "array"
+          },
+          "namespace": {
+            "description": "The namespace that was listed.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "namespace",
+          "endpoints"
+        ],
+        "type": "object"
+      }
+    }
+  }
+}

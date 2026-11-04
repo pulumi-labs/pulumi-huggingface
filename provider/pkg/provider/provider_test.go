@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/blang/semver"
-	"github.com/pulumi/autoregistry/lib/providers/huggingface/provider/pkg/provider"
+	"github.com/pulumi-labs/pulumi-huggingface/provider/pkg/provider"
 	pgp "github.com/pulumi/pulumi-go-provider"
 	"github.com/pulumi/pulumi-go-provider/integration"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
