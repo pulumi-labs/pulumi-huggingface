@@ -6,6 +6,6 @@
   "provider": "huggingface",
   "skill_commit": "9394cf6cda3e3b0b903a695ddf93524f8b3c4993",
   "source_repo": "pulumi/autoregistry",
-  "source_sha": "d56f21ff31ec1f01c11a5d4977e917fafe4e127b",
+  "source_sha": "10181b8deb4c86428992807f89dc5c946092a615",
   "source_version": "0.1.0"
 }

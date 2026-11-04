@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-04
+
 ### Changed
 
 - `InferenceEndpoint`: new optional `tags` input (create and update payloads follow `huggingface_hub`). Unmanaged while unset; removing tags that were set clears them. No existing property or ID changed.
