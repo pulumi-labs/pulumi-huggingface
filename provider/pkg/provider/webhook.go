@@ -126,7 +126,7 @@ func (r *Webhook) Check(ctx context.Context, req infer.CheckRequest) (infer.Chec
 			fail("domains", fmt.Sprintf("invalid domain %q; must be 'repo' or 'discussion'", d))
 		}
 	}
-	return infer.CheckResponse[WebhookArgs]{Inputs: args, Failures: failures}, nil
+	return infer.CheckResponse[WebhookArgs]{Inputs: args, Failures: dropUnknown(req.NewInputs, failures)}, nil
 }
 
 func watchedToAPI(in []WebhookWatchedItem) []WebhookWatched {

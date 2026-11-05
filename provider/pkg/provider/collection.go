@@ -97,7 +97,7 @@ func (r *Collection) Check(ctx context.Context, req infer.CheckRequest) (infer.C
 	if strings.TrimSpace(args.Title) == "" {
 		failures = append(failures, p.CheckFailure{Property: "title", Reason: "title must not be empty"})
 	}
-	return infer.CheckResponse[CollectionArgs]{Inputs: args, Failures: failures}, nil
+	return infer.CheckResponse[CollectionArgs]{Inputs: args, Failures: dropUnknown(req.NewInputs, failures)}, nil
 }
 
 func slugNamespace(slug string) string {
@@ -406,7 +406,7 @@ func (r *CollectionItem) Check(ctx context.Context, req infer.CheckRequest) (inf
 	if args.ItemID == "" {
 		failures = append(failures, p.CheckFailure{Property: "itemId", Reason: "itemId must not be empty"})
 	}
-	return infer.CheckResponse[CollectionItemArgs]{Inputs: args, Failures: failures}, nil
+	return infer.CheckResponse[CollectionItemArgs]{Inputs: args, Failures: dropUnknown(req.NewInputs, failures)}, nil
 }
 
 // splitItemID splits "<collection slug>/<item object ID>".

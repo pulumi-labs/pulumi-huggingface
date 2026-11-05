@@ -345,7 +345,7 @@ type SpaceRuntime struct {
 
 // RepoDetails is the response from the Hub API for a repository.
 type RepoDetails struct {
-	ID      string        `json:"id"` // "namespace/name"
+	ID      string        `json:"id"` // "namespace/name" on reads; an internal ObjectId in the create response
 	Name    string        `json:"name"`
 	Private bool          `json:"private"`
 	SDK     *string       `json:"sdk,omitempty"`

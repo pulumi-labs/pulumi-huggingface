@@ -19,9 +19,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	pgp "github.com/pulumi/pulumi-go-provider"
 	"github.com/pulumi/pulumi-go-provider/infer"
+	"github.com/pulumi/pulumi/sdk/v3/go/property"
 )
 
 // errTokenRequired is returned by every operation that needs the API and has no token.
@@ -79,6 +81,11 @@ func splitID(id string) (namespace, name string, err error) {
 			}
 			return id[:i], id[i+1:], nil
 		}
+	}
+	if !strings.Contains(id, "/") && id != "" {
+		return "", "", fmt.Errorf("invalid resource ID %q: expected namespace/name. An ID without a slash was recorded by "+
+			"provider v0.1.0, which stored the Hub's internal id; run `pulumi state delete <urn>` and re-adopt the "+
+			"repository with `pulumi import <type> <name> <namespace>/<name>` (datasets/<namespace>/<name> for a dataset)", id)
 	}
 	return "", "", fmt.Errorf("invalid resource ID %q: expected namespace/name", id)
 }
@@ -179,4 +186,25 @@ func ptrChanged[T comparable](old, new *T) bool {
 // the resource lives in (taken from its ID). An unset namespace never changes.
 func namespaceChanged(idNamespace string, ns *string) bool {
 	return ns != nil && *ns != "" && idNamespace != *ns
+}
+
+// dropUnknown removes the check failures that were computed from a property
+// whose value is not known yet (it depends on another resource's output).
+// infer.DefaultCheck decodes an unknown value to the zero value, so a check
+// would otherwise reject an empty string or list at preview time; the real
+// value is checked again at create or update. A failure's property may be a
+// path such as "watched[0].type": its root is the input key.
+func dropUnknown(inputs property.Map, failures []pgp.CheckFailure) []pgp.CheckFailure {
+	var out []pgp.CheckFailure
+	for _, f := range failures {
+		root := f.Property
+		if i := strings.IndexAny(root, "[."); i >= 0 {
+			root = root[:i]
+		}
+		if v, ok := inputs.GetOk(root); ok && v.HasComputed() {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
 }

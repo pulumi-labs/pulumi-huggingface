@@ -160,7 +160,7 @@ func (r *Space) Check(
 		}
 		seen[v.Key] = true
 	}
-	return infer.CheckResponse[SpaceArgs]{Inputs: args, Failures: failures}, nil
+	return infer.CheckResponse[SpaceArgs]{Inputs: args, Failures: dropUnknown(req.NewInputs, failures)}, nil
 }
 
 // kv is the comparable form of a secret or variable.
@@ -221,15 +221,14 @@ func (r *Space) Create(
 		Secrets:      secrets,
 		Variables:    variables,
 	}
-	repo, err := client.CreateRepo(createReq)
+	_, err = client.CreateRepo(createReq)
 	if err != nil {
 		return infer.CreateResponse[SpaceState]{}, fmt.Errorf("create space %q: %w", req.Name, err)
 	}
 
-	id := repo.ID
-	if id == "" {
-		id = fmt.Sprintf("%s/%s", namespace, req.Name)
-	}
+	// The Hub's create response carries an internal ObjectId in id, not
+	// namespace/name (#1549); the resource ID is always built from the names.
+	id := fmt.Sprintf("%s/%s", namespace, req.Name)
 	state.SpaceID = id
 	state.URL = fmt.Sprintf("https://huggingface.co/spaces/%s", id)
 	state.Namespace = ptr(namespace)

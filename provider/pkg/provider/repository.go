@@ -197,15 +197,14 @@ func (r *Repository) Create(
 		Private:      ptr(orDefault(args.Private, false)),
 		Organization: &namespace,
 	}
-	repo, err := client.CreateRepo(createReq)
+	_, err = client.CreateRepo(createReq)
 	if err != nil {
 		return infer.CreateResponse[RepositoryState]{}, fmt.Errorf("create repository %q: %w", req.Name, err)
 	}
 
-	id := repo.ID
-	if id == "" {
-		id = fmt.Sprintf("%s/%s", namespace, req.Name)
-	}
+	// The Hub's create response carries an internal ObjectId in id, not
+	// namespace/name (#1549); the resource ID is always built from the names.
+	id := fmt.Sprintf("%s/%s", namespace, req.Name)
 	state.Namespace = ptr(namespace)
 	state.RepoID = id
 	state.RepoType = ptr(repoType)

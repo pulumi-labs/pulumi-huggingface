@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-05
+
+### Fixed
+
+- Update previews no longer report identifiers as unknown: changing only a mutable input (a `Collection` description, a `Repository` or `Space` `private`) showed `slug`, `url`, `repoId` and `spaceId` as known only after apply, which rippled into every stack output and resource that read them (pulumi-labs/pulumi-huggingface#4). `Collection`, `Repository`, `Space`, `Bucket`, `CollectionItem` and `Webhook` now declare which inputs their outputs depend on.
+- Preview no longer fails when an input is not known yet (it is another resource's output): `Space.sdk`, `Webhook.url`/`watched`/`domains`, `RepositoryBranch`/`RepositoryTag` `repoId`/`branch`/`tag`, `Collection.title` and the `CollectionItem` fields were validated as empty values (pulumi-labs/pulumi-huggingface#3). Literal malformed values are still rejected, and unknown ones are checked again at create/update.
+- `Repository` and `Space`: the resource ID, `repoId`/`spaceId` and `url` are now always `namespace/name` (`datasets/namespace/name`, for datasets). The Hub's create response carries an internal ObjectId in `id`, and v0.1.0 stored it, so the next refresh, update or delete failed with `invalid resource ID` (pulumi-labs/pulumi-huggingface#2). State written by v0.1.0 cannot be repaired in place (it does not record the name): the error now names the fix, `pulumi state delete` then `pulumi import <type> <name> <namespace>/<name>`.
+- `Bucket`: the `name` output is the resolved bucket name (the resource name when the `name` input is unset); it was empty after create, refresh and update (pulumi-labs/pulumi-huggingface#5).
+
+### Added
+
+- Add `qa.yaml`, the runtime test manifest QA reads: credentials, every resource and function with its test plan and cost, and the regressions to re-check. It is copied to the mirror root and changes no provider behavior.
+
 ## [0.1.0] - 2026-11-04
 
 ### Changed

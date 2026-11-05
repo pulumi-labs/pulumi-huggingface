@@ -120,6 +120,7 @@ func (r *Bucket) Create(ctx context.Context, req infer.CreateRequest[BucketArgs]
 	}
 	id := ns + "/" + name
 	state.Namespace = ptr(ns)
+	state.Name = ptr(name) // the resolved name, also when it defaulted to the resource name (#1552)
 	state.BucketID, state.URL = id, bucketURL(id)
 	return infer.CreateResponse[BucketState]{ID: id, Output: state}, nil
 }
@@ -157,6 +158,7 @@ func (r *Bucket) Read(ctx context.Context, req infer.ReadRequest[BucketArgs, Buc
 	inputs.Private = refreshOpt(prior.Private, b.Private, true, imported, ptr(false))
 	stateArgs := inputs
 	stateArgs.Namespace = ptr(ns)
+	stateArgs.Name = ptr(name)
 	stateArgs.Private = ptr(b.Private)
 	return resp{
 		ID:     req.ID,
@@ -183,6 +185,9 @@ func (r *Bucket) Update(_ context.Context, req infer.UpdateRequest[BucketArgs, B
 	st := req.State
 	st.BucketArgs = req.Inputs
 	st.Namespace = req.State.Namespace
+	if st.Name == nil {
+		st.Name = req.State.Name
+	}
 	return infer.UpdateResponse[BucketState]{Output: st}, nil
 }
 
