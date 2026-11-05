@@ -127,3 +127,19 @@ func TestBucket_Lookup(t *testing.T) {
 	_, err = invoke(t, l.s, "getBucket", map[string]property.Value{"namespace": str("acme"), "name": str("zz")})
 	require.ErrorContains(t, err, `bucket "acme/zz" was not found`)
 }
+
+// #1552: the name output is the resolved bucket name even when the program
+// leaves the name input unset.
+func TestBucket_NameOutputWhenDefaulted(t *testing.T) {
+	l := newLC(t, "Bucket", "artifacts")
+	in := pm(map[string]property.Value{})
+	c := l.create(in)
+	require.Equal(t, "artifacts", getStr(t, c.Properties, "name"))
+	rd := l.read(c.ID, c.Properties, in)
+	require.Equal(t, "artifacts", getStr(t, rd.Properties, "name"))
+	require.False(t, hasProp(rd.Inputs, "name"), "the name input stays unset")
+	requireNoChanges(t, l.diff(c.ID, rd.Properties, in, rd.Inputs))
+	tok := with(in, map[string]property.Value{"token": str(fakeToken)})
+	u := l.update(c.ID, rd.Properties, tok, in)
+	require.Equal(t, "artifacts", getStr(t, u.Properties, "name"))
+}

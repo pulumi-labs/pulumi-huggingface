@@ -413,7 +413,9 @@ func (f *fakeHF) handleCreateRepo(w http.ResponseWriter, raw []byte) {
 	writeJSON(w, 200, map[string]any{
 		"url":  fmt.Sprintf("https://huggingface.co/%s%s/%s", prefix, ns, body.Name),
 		"name": ns + "/" + body.Name,
-		"id":   ns + "/" + body.Name,
+		// The live create response carries an internal ObjectId in id, not
+		// namespace/name (#1549).
+		"id": "65f0c0ffee0000000000abcd",
 	})
 }
 

@@ -124,7 +124,7 @@ func (r *RepositoryBranch) Check(ctx context.Context, req infer.CheckRequest) (i
 	if args.Branch == "" {
 		failures = append(failures, p.CheckFailure{Property: "branch", Reason: "branch must not be empty"})
 	}
-	return infer.CheckResponse[RepositoryBranchArgs]{Inputs: args, Failures: failures}, nil
+	return infer.CheckResponse[RepositoryBranchArgs]{Inputs: args, Failures: dropUnknown(req.NewInputs, failures)}, nil
 }
 
 func refID(repoType, repoID, ref string) string { return refPrefix(repoType) + repoID + "@" + ref }
@@ -299,7 +299,7 @@ func (r *RepositoryTag) Check(ctx context.Context, req infer.CheckRequest) (infe
 	if args.Tag == "" {
 		failures = append(failures, p.CheckFailure{Property: "tag", Reason: "tag must not be empty"})
 	}
-	return infer.CheckResponse[RepositoryTagArgs]{Inputs: args, Failures: failures}, nil
+	return infer.CheckResponse[RepositoryTagArgs]{Inputs: args, Failures: dropUnknown(req.NewInputs, failures)}, nil
 }
 
 func (r *RepositoryTag) Create(ctx context.Context, req infer.CreateRequest[RepositoryTagArgs]) (infer.CreateResponse[RepositoryTagState], error) {
