@@ -1,3 +1,0 @@
-name: huggingface-csharp
-runtime: dotnet
-description: Deploy a Hugging Face Inference Endpoint with Pulumi (C#)
