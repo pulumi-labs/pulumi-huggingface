@@ -189,7 +189,7 @@ func (r *Space) Create(
 	args := req.Inputs
 	state := SpaceState{SpaceArgs: args}
 	if req.DryRun {
-		return infer.CreateResponse[SpaceState]{ID: req.Name, Output: state}, nil
+		return infer.CreateResponse[SpaceState]{ID: "", Output: state}, nil
 	}
 
 	client, token, err := clientFor(ctx, args.Token)

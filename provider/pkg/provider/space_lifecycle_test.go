@@ -287,7 +287,7 @@ func TestSpace_PreviewDoesNotCallTheAPI(t *testing.T) {
 	l := newLC(t, "Space", "demo")
 	c, err := l.s.Create(pgp.CreateRequest{Urn: l.urn, Properties: spaceInputs(), DryRun: true})
 	require.NoError(t, err)
-	require.NotEmpty(t, c.ID)
+	require.Empty(t, c.ID, "a preview has no real ID, so the id output stays unknown (#1590)")
 	require.Empty(t, l.f.calls)
 	real := l.create(spaceInputs())
 	l.f.resetCalls()

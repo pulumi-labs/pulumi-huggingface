@@ -220,3 +220,14 @@ func TestWebhook_Lookup(t *testing.T) {
 	_, err = invoke(t, l.s, "getWebhook", map[string]property.Value{"webhookId": str("nope")})
 	require.ErrorContains(t, err, `webhook "nope" was not found`)
 }
+
+// #1590: a preview Create returned the resource name as the ID, so a program passing webhook.id to
+// an invoke (getWebhook) got a concrete, wrong ID during `pulumi preview`, ran the invoke, and
+// failed. The real ID is assigned by the Hub, so a preview has none and `id` stays unknown.
+func TestWebhook_PreviewHasNoIDSoLookupsDefer(t *testing.T) {
+	l := newLC(t, "Webhook", "hook")
+	c, err := l.s.Create(pgp.CreateRequest{Urn: l.urn, Properties: l.checked(webhookInputs()), DryRun: true})
+	require.NoError(t, err)
+	require.Empty(t, c.ID, "a preview has no real ID, so the id output stays unknown")
+	require.Empty(t, l.f.callsMatching("POST", "/api/settings/webhooks"), "a preview does not create the webhook")
+}

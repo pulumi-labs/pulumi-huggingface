@@ -349,7 +349,7 @@ func (r *InferenceEndpoint) Create(
 	args := req.Inputs
 	state := InferenceEndpointState{InferenceEndpointArgs: args}
 	if req.DryRun {
-		return infer.CreateResponse[InferenceEndpointState]{ID: req.Name, Output: state}, nil
+		return infer.CreateResponse[InferenceEndpointState]{ID: "", Output: state}, nil
 	}
 
 	client, token, err := clientFor(ctx, args.Token)

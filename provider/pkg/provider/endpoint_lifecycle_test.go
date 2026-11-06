@@ -384,7 +384,7 @@ func TestEndpoint_PreviewDoesNotCallTheAPI(t *testing.T) {
 	l := newLC(t, "InferenceEndpoint", "ep")
 	c, err := l.s.Create(pgp.CreateRequest{Urn: l.urn, Properties: endpointInputs(), DryRun: true})
 	require.NoError(t, err)
-	require.NotEmpty(t, c.ID)
+	require.Empty(t, c.ID, "a preview has no real ID, so the id output stays unknown (#1590)")
 	require.Empty(t, l.f.callsMatching("POST", "/v2/endpoint"))
 	require.Empty(t, l.f.callsMatching("GET", "/api/whoami"))
 }

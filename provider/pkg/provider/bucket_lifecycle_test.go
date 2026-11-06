@@ -108,7 +108,7 @@ func TestBucket_PreviewAndDuplicate(t *testing.T) {
 	l := newLC(t, "Bucket", "b")
 	c, err := l.s.Create(pgp.CreateRequest{Urn: l.urn, Properties: pm(nil), DryRun: true})
 	require.NoError(t, err)
-	require.NotEmpty(t, c.ID)
+	require.Empty(t, c.ID, "a preview has no real ID, so the id output stays unknown (#1590)")
 	require.Empty(t, l.f.calls)
 	l.create(pm(nil))
 	_, err = l.s.Create(pgp.CreateRequest{Urn: l.urn, Properties: pm(nil)})
