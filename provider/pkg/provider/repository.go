@@ -178,7 +178,7 @@ func (r *Repository) Create(
 	args := req.Inputs
 	state := RepositoryState{RepositoryArgs: args}
 	if req.DryRun {
-		return infer.CreateResponse[RepositoryState]{ID: req.Name, Output: state}, nil
+		return infer.CreateResponse[RepositoryState]{ID: "", Output: state}, nil
 	}
 
 	client, token, err := clientFor(ctx, args.Token)

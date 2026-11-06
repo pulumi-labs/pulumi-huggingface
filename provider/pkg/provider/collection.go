@@ -111,7 +111,7 @@ func (r *Collection) Create(ctx context.Context, req infer.CreateRequest[Collect
 	args := req.Inputs
 	state := CollectionState{CollectionArgs: args}
 	if req.DryRun {
-		return infer.CreateResponse[CollectionState]{ID: req.Name, Output: state}, nil
+		return infer.CreateResponse[CollectionState]{ID: "", Output: state}, nil
 	}
 	client, token, err := clientFor(ctx, args.Token)
 	if err != nil {
@@ -431,7 +431,7 @@ func (r *CollectionItem) Create(ctx context.Context, req infer.CreateRequest[Col
 	args := req.Inputs
 	state := CollectionItemState{CollectionItemArgs: args}
 	if req.DryRun {
-		return infer.CreateResponse[CollectionItemState]{ID: req.Name, Output: state}, nil
+		return infer.CreateResponse[CollectionItemState]{ID: "", Output: state}, nil
 	}
 	client, _, err := clientFor(ctx, args.Token)
 	if err != nil {

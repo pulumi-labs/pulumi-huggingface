@@ -176,7 +176,7 @@ func (r *Webhook) Create(ctx context.Context, req infer.CreateRequest[WebhookArg
 	args := req.Inputs
 	state := WebhookState{WebhookArgs: args, EffectiveDomains: orSlice(args.Domains, defaultWebhookDomains)}
 	if req.DryRun {
-		return infer.CreateResponse[WebhookState]{ID: req.Name, Output: state}, nil
+		return infer.CreateResponse[WebhookState]{ID: "", Output: state}, nil
 	}
 	client, _, err := clientFor(ctx, args.Token)
 	if err != nil {

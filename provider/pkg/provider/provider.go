@@ -43,7 +43,7 @@ func (c *ProviderConfig) Annotate(a infer.Annotator) {
 }
 
 // New returns the configured Hugging Face Pulumi provider.
-func New() (pgp.Provider, error) {
+func newProvider() (pgp.Provider, error) {
 	return infer.NewProviderBuilder().
 		WithDisplayName("Hugging Face").
 		WithDescription(

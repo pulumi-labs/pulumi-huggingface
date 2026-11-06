@@ -97,7 +97,7 @@ func (r *Bucket) Create(ctx context.Context, req infer.CreateRequest[BucketArgs]
 	args := req.Inputs
 	state := BucketState{BucketArgs: args}
 	if req.DryRun {
-		return infer.CreateResponse[BucketState]{ID: req.Name, Output: state}, nil
+		return infer.CreateResponse[BucketState]{ID: "", Output: state}, nil
 	}
 	client, token, err := clientFor(ctx, args.Token)
 	if err != nil {
