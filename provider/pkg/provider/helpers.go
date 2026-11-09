@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 
 	pgp "github.com/pulumi/pulumi-go-provider"
@@ -207,4 +208,20 @@ func dropUnknown(inputs property.Map, failures []pgp.CheckFailure) []pgp.CheckFa
 		out = append(out, f)
 	}
 	return out
+}
+
+// notFoundOnImport reports a missing remote object during an import.
+//
+// The engine only treats an empty ID from Read as "deleted" on refresh; on
+// import the framework's empty read response is accepted and an empty
+// resource lands in state with exit code 0. An import is recognisable by
+// Read arriving with neither prior inputs nor prior state, so in that case a
+// missing object is an error. On refresh it returns nil and the caller
+// returns the empty response that drops the resource from state.
+func notFoundOnImport[A, S any](kind, id string, inputs A, state S) error {
+	if reflect.ValueOf(inputs).IsZero() && reflect.ValueOf(state).IsZero() {
+		return fmt.Errorf("cannot import %s %q: it does not exist (or the token cannot see it); "+
+			"check the ID (a dataset repository is datasets/<namespace>/<name>)", kind, id)
+	}
+	return nil
 }

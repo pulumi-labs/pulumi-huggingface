@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-11-09
+
+### Fixed
+
+- `pulumi import` of an object that does not exist on the Hub now fails with an error naming the ID, for `Repository`, `Space`, `Bucket`, `Webhook`, `Collection`, `CollectionItem`, `InferenceEndpoint`, `RepositoryBranch` and `RepositoryTag`. It used to exit 0 and store an empty resource in state, which also hid the common mistake of importing a dataset by `<namespace>/<name>` instead of `datasets/<namespace>/<name>`. A `pulumi refresh` of an object deleted outside Pulumi still drops it from state. Mirror issue https://github.com/pulumi-labs/pulumi-huggingface/issues/12 (#1712).
+
 ## [0.1.3] - 2026-11-08
 
 ### Fixed

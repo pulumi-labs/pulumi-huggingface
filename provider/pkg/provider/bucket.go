@@ -144,6 +144,9 @@ func (r *Bucket) Read(ctx context.Context, req infer.ReadRequest[BucketArgs, Buc
 		return resp{}, fmt.Errorf("read bucket %q: %w", req.ID, err)
 	}
 	if b == nil {
+		if err := notFoundOnImport("bucket", req.ID, req.Inputs, req.State); err != nil {
+			return resp{}, err
+		}
 		return resp{}, nil
 	}
 	imported := prior.Namespace == nil && prior.Name == nil && prior.Private == nil && req.State.BucketID == ""

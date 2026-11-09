@@ -259,6 +259,9 @@ func (r *Space) Read(
 	}
 	if repo == nil {
 		// Deleted outside Pulumi: an empty ID drops the resource from state.
+		if err := notFoundOnImport("space", req.ID, req.Inputs, req.State); err != nil {
+			return resp{}, err
+		}
 		return resp{}, nil
 	}
 	apiVars, err := client.GetSpaceVariables(namespace, name)

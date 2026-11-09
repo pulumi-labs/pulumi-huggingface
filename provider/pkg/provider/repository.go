@@ -249,6 +249,9 @@ func (r *Repository) Read(
 	}
 	if repo == nil {
 		// Deleted outside Pulumi: an empty ID drops the resource from state.
+		if err := notFoundOnImport("repository", req.ID, req.Inputs, req.State); err != nil {
+			return resp{}, err
+		}
 		return resp{}, nil
 	}
 
