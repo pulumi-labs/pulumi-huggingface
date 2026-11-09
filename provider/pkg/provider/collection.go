@@ -159,6 +159,9 @@ func (r *Collection) Read(ctx context.Context, req infer.ReadRequest[CollectionA
 		return resp{}, fmt.Errorf("read collection %q: %w", req.ID, err)
 	}
 	if col == nil {
+		if err := notFoundOnImport("collection", req.ID, req.Inputs, req.State); err != nil {
+			return resp{}, err
+		}
 		return resp{}, nil
 	}
 	imported := prior.Title == ""
@@ -475,10 +478,16 @@ func (r *CollectionItem) Read(ctx context.Context, req infer.ReadRequest[Collect
 		return resp{}, fmt.Errorf("read collection item %q: %w", req.ID, err)
 	}
 	if col == nil {
+		if err := notFoundOnImport("collection item", req.ID, req.Inputs, req.State); err != nil {
+			return resp{}, err
+		}
 		return resp{}, nil
 	}
 	item := findItem(col, func(it CollectionItemDetails) bool { return it.ObjectID == objectID })
 	if item == nil {
+		if err := notFoundOnImport("collection item", req.ID, req.Inputs, req.State); err != nil {
+			return resp{}, err
+		}
 		return resp{}, nil
 	}
 	imported := prior.CollectionSlug == ""

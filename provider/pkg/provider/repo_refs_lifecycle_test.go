@@ -240,9 +240,9 @@ func TestRepositoryTag_ImportDeletedAndLookup(t *testing.T) {
 	require.ErrorContains(t, err, `tag "nope" was not found in "acme/m"`)
 
 	l.f.mutateRefs("model", "acme", "m", func(_, tags map[string]string) { delete(tags, "v9") })
-	require.Empty(t, l.read("models/acme/m@v9", empty(), empty()).ID)
+	require.Empty(t, l.read("models/acme/m@v9", rd.Properties, rd.Inputs).ID)
 	l.f.deleteRepoOutOfBand("model", "acme", "m")
-	require.Empty(t, l.read("models/acme/m@v9", empty(), empty()).ID)
+	require.Empty(t, l.read("models/acme/m@v9", rd.Properties, rd.Inputs).ID)
 	l.del("models/acme/m@v9", rd.Properties)
 }
 

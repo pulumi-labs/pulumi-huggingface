@@ -231,6 +231,9 @@ func (r *Webhook) Read(ctx context.Context, req infer.ReadRequest[WebhookArgs, W
 		return resp{}, fmt.Errorf("read webhook %q: %w", req.ID, err)
 	}
 	if wh == nil {
+		if err := notFoundOnImport("webhook", req.ID, req.Inputs, req.State); err != nil {
+			return resp{}, err
+		}
 		return resp{}, nil
 	}
 	imported := prior.URL == ""

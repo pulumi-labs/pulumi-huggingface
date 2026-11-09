@@ -70,6 +70,7 @@ functions:
     test: false
     reason: Needs an existing Inference Endpoint, which bills per hour and needs a payment method; the test account has none.
 regressions:
+  - "#1712 pulumi import of an ID that does not exist (Repository, Space, Bucket, Webhook, Collection, RepositoryBranch, RepositoryTag) exits non-zero with an error naming the ID and stores nothing; a dataset imported as namespace/name (no datasets/ prefix) fails the same way; pulumi refresh after deleting the object out of band still removes it from state"
   - "#1675 RepositoryTag created with a message (annotated tag) on main: its targetCommit (state and getRepositoryTag) equals the main branch targetCommit and is a commit listed by the Hub, not the tag object id"
   - "#1577 import then inspect the stack state (pulumi stack export --show-secrets off): every property the schema marks secret on an imported resource is a secret, never plaintext; a refresh of a resource created by the program keeps them secret"
   - "InferenceEndpoint: endpointType defaults to authenticated and protected is rejected at preview (protected was removed by the API)"

@@ -161,7 +161,9 @@ func TestRepository_ImportByIDAlone(t *testing.T) {
 	}
 
 	// The type prefix decides where to look: a dataset is not found as a model.
-	require.Empty(t, l.read("acme/d", property.NewMap(nil), property.NewMap(nil)).ID)
+	// An import of it fails instead of storing an empty resource (#1712).
+	_, err := l.s.Read(pgp.ReadRequest{ID: "acme/d", Urn: l.urn, Properties: property.NewMap(nil), Inputs: property.NewMap(nil)})
+	require.ErrorContains(t, err, "datasets/<namespace>/<name>")
 }
 
 func TestRepository_LegacyDatasetIDStillResolvesThroughState(t *testing.T) {

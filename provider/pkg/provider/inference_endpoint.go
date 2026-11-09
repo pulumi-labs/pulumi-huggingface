@@ -500,6 +500,9 @@ func (r *InferenceEndpoint) Read(
 	}
 	if endpoint == nil {
 		// Deleted outside Pulumi: an empty ID drops the resource from state.
+		if err := notFoundOnImport("inference endpoint", req.ID, req.Inputs, req.State); err != nil {
+			return resp{}, err
+		}
 		return resp{}, nil
 	}
 

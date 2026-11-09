@@ -176,10 +176,16 @@ func (r *RepositoryBranch) Read(ctx context.Context, req infer.ReadRequest[Repos
 		return resp{}, fmt.Errorf("read branch %q: %w", req.ID, err)
 	}
 	if refs == nil {
+		if err := notFoundOnImport("branch", req.ID, req.Inputs, req.State); err != nil {
+			return resp{}, err
+		}
 		return resp{}, nil
 	}
 	b := findRef(refs.Branches, branch)
 	if b == nil {
+		if err := notFoundOnImport("branch", req.ID, req.Inputs, req.State); err != nil {
+			return resp{}, err
+		}
 		return resp{}, nil
 	}
 	imported := prior.RepoID == ""
@@ -349,10 +355,16 @@ func (r *RepositoryTag) Read(ctx context.Context, req infer.ReadRequest[Reposito
 		return resp{}, fmt.Errorf("read tag %q: %w", req.ID, err)
 	}
 	if refs == nil {
+		if err := notFoundOnImport("tag", req.ID, req.Inputs, req.State); err != nil {
+			return resp{}, err
+		}
 		return resp{}, nil
 	}
 	t := findRef(refs.Tags, tag)
 	if t == nil {
+		if err := notFoundOnImport("tag", req.ID, req.Inputs, req.State); err != nil {
+			return resp{}, err
+		}
 		return resp{}, nil
 	}
 	imported := prior.RepoID == ""
