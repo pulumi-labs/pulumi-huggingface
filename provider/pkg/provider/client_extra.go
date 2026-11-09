@@ -334,6 +334,39 @@ func (c *hfClient) GetRefs(repoType, repoID string) (*GitRefs, error) {
 	return &out, nil
 }
 
+// ResolveRevision returns the commit a branch, tag or commit SHA resolves to
+// (GET .../revision/{rev}, its `sha`), or "" when the Hub does not know it.
+// The refs listing reports the tag object for an annotated tag, which is not a
+// commit; this endpoint peels it.
+func (c *hfClient) ResolveRevision(repoType, repoID, rev string) (string, error) {
+	u := fmt.Sprintf("%s/api/%s/%s/revision/%s", hubBase, repoAPIPath(repoType), repoID, url.PathEscape(rev))
+	body, code, err := c.do("GET", u, nil)
+	if err != nil {
+		if isNotFound(code) {
+			return "", nil
+		}
+		return "", fmt.Errorf("resolve revision %q: %w", rev, err)
+	}
+	var out struct {
+		SHA string `json:"sha"`
+	}
+	if err := json.Unmarshal(body, &out); err != nil {
+		return "", fmt.Errorf("unmarshal revision %q: %w", rev, err)
+	}
+	return out.SHA, nil
+}
+
+// tagCommit is the commit a tag points at. The refs listing reports the tag
+// object for an annotated tag (one created with a message), so the tag is
+// resolved through the revision endpoint; when that fails or answers nothing
+// the refs value is kept, which is already the commit for a lightweight tag.
+func (c *hfClient) tagCommit(repoType, repoID string, t *GitRef) string {
+	if sha, err := c.ResolveRevision(repoType, repoID, t.Name); err == nil && sha != "" {
+		return sha
+	}
+	return t.TargetCommit
+}
+
 // CreateBranch posts .../branch/{branch}; the branch name is path-escaped (a
 // slash becomes %2F) and startingPoint is optional.
 func (c *hfClient) CreateBranch(repoType, repoID, branch string, startingPoint *string) error {

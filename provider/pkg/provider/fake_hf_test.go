@@ -88,6 +88,7 @@ type fakeRepo struct {
 	gated         string            // "", "auto" or "manual"
 	branches      map[string]string // name -> commit
 	tags          map[string]string // name -> commit
+	tagObjects    map[string]string // annotated tag name -> tag object id (what /refs reports)
 }
 
 var fakeHardwareFlavors = []string{
@@ -386,7 +387,7 @@ func (f *fakeHF) handleCreateRepo(w http.ResponseWriter, raw []byte) {
 	repo := &fakeRepo{
 		typ: body.Type, ns: ns, name: body.Name, private: body.Private,
 		secrets: map[string]map[string]any{}, variables: map[string]map[string]any{},
-		branches: map[string]string{"main": f.commit()}, tags: map[string]string{},
+		branches: map[string]string{"main": f.commit()}, tags: map[string]string{}, tagObjects: map[string]string{},
 	}
 	if body.Type == "space" {
 		repo.sdk = body.SDK
@@ -512,7 +513,7 @@ func (f *fakeHF) handleRepo(w http.ResponseWriter, r *http.Request, parts []stri
 			repo.private = p
 		}
 		w.WriteHeader(200)
-	case sub == "refs" || sub == "branch" || sub == "tag":
+	case sub == "refs" || sub == "branch" || sub == "tag" || sub == "revision":
 		f.handleRefs(w, r, repo, sub, parts[4:], body)
 	case typ != "space":
 		apiError(w, 404, "not found")
@@ -662,7 +663,7 @@ func (f *fakeHF) addRepo(typ, ns, name string, mutate func(r *fakeRepo)) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	r := &fakeRepo{typ: typ, ns: ns, name: name, secrets: map[string]map[string]any{}, variables: map[string]map[string]any{},
-		branches: map[string]string{"main": f.commit()}, tags: map[string]string{}}
+		branches: map[string]string{"main": f.commit()}, tags: map[string]string{}, tagObjects: map[string]string{}}
 	if typ == "space" {
 		r.sdk, r.hardware = "gradio", "cpu-basic"
 	}

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-11-08
+
+### Fixed
+
+- `RepositoryTag` and `getRepositoryTag`: `targetCommit` is now always the commit the tag points at. For a tag created with a message (an annotated tag) the Hub refs listing returns the tag object id, which is not a commit in the repository, and it was surfaced as is. The commit is now resolved through the Hub revision endpoint on create, refresh, import and lookup, falling back to the refs value when that call fails. Branches are unchanged. Mirror issue https://github.com/pulumi-labs/pulumi-huggingface/issues/10 (#1675).
+- Security: updated the indirect dependency `github.com/klauspost/compress` from v1.18.7 to v1.20.2, which fixes GO-2026-6865 (GHSA-fpmh-frq8-7rj8, a panic on two-block frames). No behaviour changes.
+
 ## [0.1.2] - 2026-11-05
 
 ### Fixed

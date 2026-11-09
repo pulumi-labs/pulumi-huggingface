@@ -356,6 +356,19 @@ func (repo *fakeRepo) resolveRevision(rev string) (string, bool) {
 	return "", false
 }
 
+// tagsAsListed is what /refs reports for tags: the tag object for an annotated
+// tag, the commit for a lightweight one.
+func (repo *fakeRepo) tagsAsListed() map[string]string {
+	out := map[string]string{}
+	for k, v := range repo.tags {
+		if obj, ok := repo.tagObjects[k]; ok {
+			v = obj
+		}
+		out[k] = v
+	}
+	return out
+}
+
 func refsView(prefix string, m map[string]string) []any {
 	out := []any{}
 	for _, name := range slices.Sorted(mapKeys(m)) {
@@ -370,8 +383,15 @@ func (f *fakeHF) handleRefs(w http.ResponseWriter, r *http.Request, repo *fakeRe
 	case sub == "refs" && r.Method == "GET":
 		writeJSON(w, 200, map[string]any{
 			"branches": refsView("refs/heads/", repo.branches), "converts": []any{},
-			"tags": refsView("refs/tags/", repo.tags), "pullRequests": []any{},
+			"tags": refsView("refs/tags/", repo.tagsAsListed()), "pullRequests": []any{},
 		})
+	case sub == "revision" && r.Method == "GET":
+		commit, found := repo.resolveRevision(name)
+		if !found {
+			apiError(w, 404, "Revision not found")
+			return
+		}
+		writeJSON(w, 200, map[string]any{"sha": commit})
 	case sub == "branch" && r.Method == "POST":
 		if _, exists := repo.branches[name]; exists {
 			apiError(w, 409, "Branch already exists")
@@ -411,6 +431,11 @@ func (f *fakeHF) handleRefs(w http.ResponseWriter, r *http.Request, repo *fakeRe
 			return
 		}
 		repo.tags[tag] = commit
+		// Like the real Hub, a tag with a message is annotated: /refs reports the
+		// tag object, not the commit, while /revision peels it.
+		if msg, _ := body["message"].(string); msg != "" {
+			repo.tagObjects[tag] = "tagobj-" + commit
+		}
 		w.WriteHeader(200)
 	case sub == "tag" && r.Method == "DELETE":
 		if _, ok := repo.tags[name]; !ok {
@@ -418,6 +443,7 @@ func (f *fakeHF) handleRefs(w http.ResponseWriter, r *http.Request, repo *fakeRe
 			return
 		}
 		delete(repo.tags, name)
+		delete(repo.tagObjects, name)
 		w.WriteHeader(200)
 	default:
 		apiError(w, 405, "method not allowed")

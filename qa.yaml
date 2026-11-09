@@ -70,6 +70,7 @@ functions:
     test: false
     reason: Needs an existing Inference Endpoint, which bills per hour and needs a payment method; the test account has none.
 regressions:
+  - "#1675 RepositoryTag created with a message (annotated tag) on main: its targetCommit (state and getRepositoryTag) equals the main branch targetCommit and is a commit listed by the Hub, not the tag object id"
   - "#1577 import then inspect the stack state (pulumi stack export --show-secrets off): every property the schema marks secret on an imported resource is a secret, never plaintext; a refresh of a resource created by the program keeps them secret"
   - "InferenceEndpoint: endpointType defaults to authenticated and protected is rejected at preview (protected was removed by the API)"
   - "Repository: changing private is applied through the settings API and refresh reverts drift (update used to be a no-op)"
