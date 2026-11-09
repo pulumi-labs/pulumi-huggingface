@@ -324,7 +324,7 @@ func (r *RepositoryTag) Create(ctx context.Context, req infer.CreateRequest[Repo
 	}
 	if refs != nil {
 		if t := findRef(refs.Tags, args.Tag); t != nil {
-			state.TargetCommit = t.TargetCommit
+			state.TargetCommit = client.tagCommit(rt, args.RepoID, t)
 		}
 	}
 	return infer.CreateResponse[RepositoryTagState]{ID: id, Output: state}, nil
@@ -368,7 +368,7 @@ func (r *RepositoryTag) Read(ctx context.Context, req infer.ReadRequest[Reposito
 	return resp{
 		ID:     req.ID,
 		Inputs: inputs,
-		State:  RepositoryTagState{RepositoryTagArgs: stateArgs, TargetCommit: t.TargetCommit},
+		State:  RepositoryTagState{RepositoryTagArgs: stateArgs, TargetCommit: client.tagCommit(rt, repoID, t)},
 	}, nil
 }
 
@@ -535,6 +535,6 @@ func (f *GetRepositoryTag) Invoke(ctx context.Context, req infer.FunctionRequest
 	if t == nil {
 		return out, fmt.Errorf("huggingface: tag %q was not found in %q", in.Tag, in.RepoID)
 	}
-	out.Output = GetRepositoryTagResult{RepoID: in.RepoID, RepoType: rt, Tag: t.Name, Ref: t.Ref, TargetCommit: t.TargetCommit}
+	out.Output = GetRepositoryTagResult{RepoID: in.RepoID, RepoType: rt, Tag: t.Name, Ref: t.Ref, TargetCommit: client.tagCommit(rt, in.RepoID, t)}
 	return out, nil
 }

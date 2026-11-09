@@ -266,3 +266,39 @@ func TestRepositoryRefs_FailureAfterCreateKeepsTheRef(t *testing.T) {
 	branches, _ := l.f.refs("model", "acme", "m")
 	require.Contains(t, branches, "dev")
 }
+
+// An annotated tag (created with a message) is reported by /refs as the tag
+// object, not the commit. targetCommit must always be the commit (#1675).
+func TestRepositoryTag_TargetCommitIsPeeledForAnnotatedTags(t *testing.T) {
+	l := newLC(t, "RepositoryTag", "tag")
+	l.f.addRepo("model", "acme", "m", nil)
+	branches, _ := l.f.refs("model", "acme", "m")
+	main := branches["main"]
+
+	annotated := with(tagInputs(), map[string]property.Value{"revision": str("main")})
+	c := l.create(annotated)
+	require.Equal(t, main, getStr(t, c.Properties, "targetCommit"), "create reports the commit")
+
+	// /refs itself reports a tag object, so the peel is what makes this equal.
+	l.f.mu.Lock()
+	listed := l.f.repos[repoKey("model", "acme", "m")].tagsAsListed()["v1.0"]
+	l.f.mu.Unlock()
+	require.NotEqual(t, main, listed, "the fake Hub reports the tag object in /refs")
+
+	rd := l.read(c.ID, c.Properties, annotated)
+	require.Equal(t, main, getStr(t, rd.Properties, "targetCommit"), "refresh reports the commit")
+	imp := l.read(c.ID, empty(), empty())
+	require.Equal(t, main, getStr(t, imp.Properties, "targetCommit"), "import reports the commit")
+
+	out, err := invoke(t, l.s, "getRepositoryTag", map[string]property.Value{"repoId": str("acme/m"), "tag": str("v1.0")})
+	require.NoError(t, err)
+	require.Equal(t, main, getStr(t, out, "targetCommit"), "the lookup reports the commit")
+
+	// A lightweight tag (no message) is the commit already.
+	plain := pm(map[string]property.Value{"repoId": str("acme/m"), "tag": str("plain")})
+	pc := l.create(plain)
+	require.Equal(t, main, getStr(t, pc.Properties, "targetCommit"))
+	out, err = invoke(t, l.s, "getRepositoryTag", map[string]property.Value{"repoId": str("acme/m"), "tag": str("plain")})
+	require.NoError(t, err)
+	require.Equal(t, main, getStr(t, out, "targetCommit"))
+}
