@@ -1,3 +1,0 @@
-name: huggingface-go
-runtime: go
-description: Deploy a Hugging Face Inference Endpoint with Pulumi (Go)
