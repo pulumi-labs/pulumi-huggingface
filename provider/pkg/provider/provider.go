@@ -75,7 +75,7 @@ func newProvider() (pgp.Provider, error) {
 		WithModuleMap(map[tokens.ModuleName]tokens.ModuleName{
 			"provider": "index",
 		}).
-		WithConfig(infer.Config(ProviderConfig{})).
+		WithConfig(infer.Config(&ProviderConfig{})).
 		WithResources(
 			infer.Resource[*InferenceEndpoint, InferenceEndpointArgs, InferenceEndpointState](&InferenceEndpoint{}),
 			infer.Resource[*Space, SpaceArgs, SpaceState](&Space{}),
