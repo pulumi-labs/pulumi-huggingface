@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-11-13
+
+### Fixed
+
+- `pulumi destroy`, refresh and updates of an imported resource now use credentials and endpoints given only through environment variables (#1955, same root cause as #1951): after `pulumi import` the engine reconfigures the provider without running the config defaults (upstream pulumi/pulumi-go-provider#527), so the environment fallbacks were skipped; the provider config now fills unset settings from the environment in `Configure`. Not breaking.
+
 ## [0.1.4] - 2026-11-09
 
 ### Fixed

@@ -4,8 +4,8 @@
   "display_name": "Hugging Face",
   "exclude_platforms": [],
   "provider": "huggingface",
-  "skill_commit": "6d559827271e2f3b5722cb70fe8e091d6bb041ee",
+  "skill_commit": "17da976cca658dfab4425a727e49859c44e2bdc1",
   "source_repo": "pulumi/autoregistry",
-  "source_sha": "4fef9ea3b246956a957fe878b510a5b2c8b80202",
-  "source_version": "0.1.4"
+  "source_sha": "d195231ac6f5750354af0cc2092e972f0f4728fb",
+  "source_version": "0.1.5"
 }
