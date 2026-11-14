@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-11-14
+
+### Fixed
+
+- Fixed: the `Webhook` url check failure no longer repeats the url in its message, because a webhook url can carry a secret token in its query string (follow-up to #1976). Not breaking.
+- Fixed: `Webhook` now rejects a literal `url` that is not an absolute http or https URL (for example `not-a-url`) at `pulumi preview` with a failure on `url`, instead of passing preview and failing at `pulumi up` with the Hub's 400 "Invalid URL" (fixes #1976, mirror pulumi-labs/pulumi-huggingface#16). An unknown `url` (another resource's output) still previews. Not breaking.
+
+### Security
+
+- Security: the Go SDK `go.mod` in the mirror now requires OpenTelemetry `sdk/log` v1.47.0 instead of v0.21.0, fixing GHSA-q7gw-24fr-5p69 (vulnerable >= 0.9.0, < 1.47.0) and clearing the pulumi-labs/pulumi-huggingface Dependabot alert once released (fixes #1972). SDK generation change only. Not breaking.
+
 ## [0.1.6] - 2026-11-13
 
 ### Security
