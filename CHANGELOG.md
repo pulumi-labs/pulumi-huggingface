@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-11-13
+
+### Security
+
+- Security: updated OpenTelemetry (`go.opentelemetry.io/otel`, `sdk`, `trace`, `metric`, `log` and the OTLP trace exporters) from 1.45.0 to 1.47.0, which fixes GHSA-q7gw-24fr-5p69 (CVE-2026-128085, `AttributeValueLengthLimit` bypass in opentelemetry-go, vulnerable 1.33.0 to 1.46.x). Closes pulumi-labs/pulumi-huggingface Dependabot alerts #1 to #5 once released (#1966). Not breaking.
+
 ## [0.1.5] - 2026-11-13
 
 ### Fixed
