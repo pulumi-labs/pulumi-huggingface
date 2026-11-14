@@ -63,3 +63,18 @@ func TestCheck_UnknownInputsAreAccepted(t *testing.T) {
 		})
 	}
 }
+
+// #1976: a literal url that is not an absolute http(s) URL fails at Check (the Hub only
+// answers 400 at create); an unknown url still passes preview.
+func TestWebhookCheck_RejectsMalformedURL(t *testing.T) {
+	watched := arr(obj(map[string]property.Value{"type": str("model"), "name": str("me/m")}))
+	l := newLC(t, "Webhook", "x")
+	for _, bad := range []string{"not-a-url", "example.com/hook", "ftp://example.com/h", "https://", "http:///path", "://x"} {
+		fails := l.checkFailures(pm(map[string]property.Value{"url": str(bad), "watched": watched}))
+		require.NotEmpty(t, fails, bad)
+	}
+	for _, ok := range []string{"https://example.com/hook", "http://localhost:8080/h?x=1"} {
+		require.Empty(t, l.checkFailures(pm(map[string]property.Value{"url": str(ok), "watched": watched})), ok)
+	}
+	require.Empty(t, l.checkFailures(pm(map[string]property.Value{"url": property.New(property.Computed), "watched": watched})))
+}

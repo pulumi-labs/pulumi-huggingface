@@ -81,7 +81,7 @@ regressions:
   - "#1549 Repository/Space: the resource ID and repoId/spaceId are namespace/name even though the Hub create response carries an ObjectId in id"
   - "#1552 Bucket: the name output is the resolved bucket name even when the name input is unset"
   - "#1550 an update preview that changes only a mutable input (Collection description, Repository/Space private) keeps slug, url, repoId and spaceId known instead of known after apply"
-  - "#1551 Check accepts inputs that are unknown at preview (Space sdk, Webhook url/watched, RepositoryBranch/Tag repoId/ref, Collection title, CollectionItem fields) and still rejects literal malformed values"
+  - "#1551 Check accepts inputs that are unknown at preview (Space sdk, Webhook url/watched, RepositoryBranch/Tag repoId/ref, Collection title, CollectionItem fields) and still rejects literal malformed values (#1976: a Webhook url that is not an absolute http or https URL, such as not-a-url, fails at preview with a failure on url)"
   - "Space/Repository: changing sdk, namespace or repoType replaces the resource instead of planning a no-op update"
   - "Repository/Space/InferenceEndpoint: deleting a resource already deleted outside Pulumi is a no-op, not an error"
   - "huggingface:token config falls back to the HUGGINGFACE_TOKEN env var when unset; explicit config still wins"

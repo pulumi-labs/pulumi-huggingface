@@ -17,6 +17,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"slices"
 
 	p "github.com/pulumi/pulumi-go-provider"
@@ -109,6 +110,9 @@ func (r *Webhook) Check(ctx context.Context, req infer.CheckRequest) (infer.Chec
 	fail := func(prop, reason string) { failures = append(failures, p.CheckFailure{Property: prop, Reason: reason}) }
 	if args.URL == "" {
 		fail("url", "url must not be empty")
+	} else if u, err := url.Parse(args.URL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
+		// The Hub rejects anything else with a 400 ("Invalid URL") only at create.
+		fail("url", "invalid url; must be an absolute http or https URL such as https://example.com/hook")
 	}
 	if len(args.Watched) == 0 {
 		fail("watched", "watch at least one item")
