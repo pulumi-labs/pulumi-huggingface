@@ -1,3 +1,0 @@
-name: huggingface-python
-runtime: python
-description: Deploy a Hugging Face Inference Endpoint with Pulumi (Python)

@@ -1,3 +1,0 @@
-name: huggingface-ts
-runtime: nodejs
-description: Deploy a Hugging Face Inference Endpoint with Pulumi (TypeScript)
