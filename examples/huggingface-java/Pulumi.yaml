@@ -1,3 +1,0 @@
-name: huggingface-java
-runtime: java
-description: Deploy a Hugging Face Inference Endpoint with Pulumi (Java)
