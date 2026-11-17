@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-11-17
+
+### Security
+
+- Security: updated indirect dependencies `github.com/go-git/go-git/v5` to v5.19.3 (clearing the go-git advisories GHSA-389r-gv7p-r3rp, GHSA-3xc5-wrhm-f963, GHSA-crhj-59gh-8x96 and others fixed in 5.19.x, plus GO-2026-4909 .. GO-2026-6214), `github.com/go-git/go-billy/v5` to v5.9.2 and `github.com/klauspost/compress` to v1.20.4 (GO-2026-6865). Dependency bump only; no schema or behaviour change.
+
 ## [0.1.8] - 2026-11-15
 
 ### Security
